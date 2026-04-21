@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and points",
+      "type": "object",
+      "properties": {
+        "_id": { "type": "string" },
+        "tokenIdentifier": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "points": { "type": "number" },
+        "ratingSum": { "type": "number" },
+        "ratingCount": { "type": "number" },
+        "city": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "bio": { "type": "string" },
+        "isAdmin": { "type": "boolean" }
+      },
+      "required": ["_id", "name", "email", "points"]
+    },
+    "Service": {
+      "title": "Service Engagement",
+      "description": "Represents a help request and the engagement between requester and provider",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "city": { "type": "string" },
+        "points": { "type": "number" },
+        "requesterId": { "type": "string" },
+        "requesterName": { "type": "string" },
+        "providerId": { "type": "string" },
+        "providerName": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "active", "confirming", "completed"] },
+        "requesterConfirmed": { "type": "boolean" },
+        "providerConfirmed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "requesterId", "points", "status", "createdAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A message within a service chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["text", "system"] }
+      },
+      "required": ["senderId", "text", "createdAt"]
+    },
+    "Rating": {
+      "title": "User Rating",
+      "description": "A rating given by one user to another after service completion",
+      "type": "object",
+      "properties": {
+        "serviceId": { "type": "string" },
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["serviceId", "fromId", "toId", "rating", "createdAt"]
+    },
+    "Notification": {
+      "title": "User Notification",
+      "description": "Alerts for user activities like new messages or service status changes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["message", "status_change", "point_transfer", "system"] },
+        "link": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profile and point balance"
+    },
+    "users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
+    "services/{serviceId}": {
+      "schema": "Service",
+      "description": "Information about the service engagement"
+    },
+    "services/{serviceId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages for the service"
+    },
+    "services/{serviceId}/ratings/{ratingId}": {
+      "schema": "Rating",
+      "description": "Ratings for users involved in the service"
+    }
+  }
+}

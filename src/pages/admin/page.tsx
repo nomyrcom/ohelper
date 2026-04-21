@@ -1,0 +1,395 @@
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { 
+  collection, query, getDocs, doc, updateDoc, 
+  deleteDoc, orderBy, where, onSnapshot, limit,
+  writeBatch, increment, serverTimestamp
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, 
+  DialogFooter, DialogClose, DialogDescription 
+} from '@/components/ui/dialog';
+import { 
+  Users, ClipboardList, CheckCircle, Ban, TrendingUp, 
+  Search, Shield, Trash2, Plus, Minus, UserCheck, 
+  UserX, AlertCircle, RefreshCcw, Coins, Star, ChevronRight,
+  User as UserIcon, Mail, MapPin, Calendar
+} from 'lucide-react';
+import { User, Service } from '@/types';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
+import { motion, AnimatePresence } from 'motion/react';
+
+export default function AdminPage() {
+  const { t } = useTranslation();
+  
+  // Dashboard Stats
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalServices, setTotalServices] = useState(0);
+  const [openServices, setOpenServices] = useState(0);
+  const [completedServices, setCompletedServices] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [avgRating, setAvgRating] = useState(0);
+
+  // Management Lists
+  const [users, setUsers] = useState<User[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  
+  // Point Dialog State
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [pointAmount, setPointAmount] = useState('0');
+  const [isPointDialogOpen, setIsPointDialogOpen] = useState(false);
+
+  const { user: currentUser } = useAuth();
+
+  const fetchStats = async () => {
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const servicesSnap = await getDocs(collection(db, 'services'));
+      
+      setTotalUsers(usersSnap.size);
+      setTotalServices(servicesSnap.size);
+      
+      let points = 0;
+      let ratings = 0;
+      let ratedCount = 0;
+      usersSnap.forEach(u => {
+        const data = u.data() as User;
+        points += (data.points || 0);
+        if (data.ratingCount > 0) {
+          ratings += (data.ratingSum / data.ratingCount);
+          ratedCount++;
+        }
+      });
+      
+      setTotalPoints(points);
+      if (ratedCount > 0) setAvgRating(ratings / ratedCount);
+
+      let opened = 0;
+      let finished = 0;
+      servicesSnap.forEach(s => {
+        const data = s.data() as Service;
+        if (data.status === 'open') opened++;
+        if (data.status === 'completed') finished++;
+      });
+      setOpenServices(opened);
+      setCompletedServices(finished);
+    } catch (error) {
+      console.error("Admin fetchStats error:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser?.isAdmin) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubUsers = onSnapshot(query(collection(db, 'users'), limit(100)), (snap) => {
+      setUsers(snap.docs.map(d => d.data() as User));
+    });
+
+    const unsubServices = onSnapshot(query(collection(db, 'services'), orderBy('createdAt', 'desc'), limit(100)), (snap) => {
+      setServices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Service)));
+    });
+
+    fetchStats();
+    setLoading(false);
+
+    return () => {
+      unsubUsers();
+      unsubServices();
+    };
+  }, [currentUser?.isAdmin]);
+
+  const handleUpdatePoints = async () => {
+    if (!selectedUser || !pointAmount) return;
+    const amount = parseInt(pointAmount);
+    if (isNaN(amount)) return;
+
+    try {
+      await updateDoc(doc(db, 'users', selectedUser._id), {
+        points: increment(amount)
+      });
+      toast.success(amount > 0 ? `تم إضافة ${amount} نقطة` : `تم خصم ${Math.abs(amount)} نقطة`);
+      setIsPointDialogOpen(false);
+      setPointAmount('0');
+      fetchStats(); // Update total points stat
+    } catch (error) {
+      toast.error('فشل تحديث النقاط');
+    }
+  };
+
+  const handleToggleAdmin = async (userId: string, currentStatus: boolean) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        isAdmin: !currentStatus
+      });
+      toast.success('تم تحديث الصلاحيات');
+    } catch (error) {
+      toast.error('فشل تحديث الصلاحيات');
+    }
+  };
+
+  const handleCancelService = async (serviceId: string) => {
+    if (!confirm('هل أنت متأكد من إلغاء هذه الخدمة؟ ستعود النقاط لصاحبها.')) return;
+    try {
+      await updateDoc(doc(db, 'services', serviceId), {
+        status: 'open',
+        providerId: null,
+        providerName: null,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('تم إلغاء تنفيذ الخدمة بنجاح');
+    } catch (error) {
+      toast.error('فشل إلغاء الخدمة');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('تحذير: سيتم حذف المستخدم نهائياً. هل أنت متأكد؟')) return;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      toast.success('تم حذف المستخدم بنجاح');
+    } catch (error) {
+      toast.error('فشل حذف المستخدم');
+    }
+  };
+
+  const filteredUsers = users.filter(u => 
+    u.name?.toLowerCase().includes(userSearch.toLowerCase()) || 
+    u.email?.toLowerCase().includes(userSearch.toLowerCase())
+  );
+
+  const filteredServices = services.filter(s => 
+    serviceFilter === 'all' ? true : s.status === serviceFilter
+  );
+
+  const stats = [
+    { label: 'المستخدمين', value: totalUsers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'إجمالي الطلبات', value: totalServices, icon: ClipboardList, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'طلبات مفتوحة', value: openServices, icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'طلبات مكتملة', value: completedServices, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'إجمالي النقاط', value: totalPoints, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'متوسط التقييم', value: avgRating.toFixed(1), icon: Star, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+  ];
+
+  return (
+    <div className="p-4 md:p-8 space-y-8 max-w-6xl mx-auto min-h-screen">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-foreground flex items-center gap-2">
+            <Shield className="h-8 w-8 text-primary" />
+            لوحة الإدارة
+          </h1>
+          <p className="text-muted-foreground mt-1">إدارة المستخدمين والخدمات المنشورة في المنصة</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {stats.map(stat => (
+          <Card key={stat.label} className="p-4 flex flex-col gap-2 border-border/50 shadow-sm">
+            <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center ${stat.color}`}>
+              <stat.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-muted-foreground uppercase">{stat.label}</p>
+              <p className="text-xl font-black text-foreground">{stat.value}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 rounded-xl">
+          <TabsTrigger value="users" className="rounded-lg font-bold px-8">المستخدمين</TabsTrigger>
+          <TabsTrigger value="services" className="rounded-lg font-bold px-8">الخدمات</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-4">
+          <div className="relative max-w-md">
+            <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="البحث بالاسم أو البريد..." 
+              className="pr-10 rounded-xl"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-4">
+            {filteredUsers.map(u => (
+              <Card key={u._id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-border shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-black">
+                    {u.name?.[0] || 'ي'}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-foreground flex items-center gap-2">
+                      {u.name}
+                      {u.isAdmin && <Badge className="bg-primary/10 text-primary border-0 text-[10px] py-0">مسؤول</Badge>}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">النقاط</p>
+                    <p className="font-black text-primary">{u.points}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-1 border-r pr-4 border-border">
+                    <Button 
+                      size="sm" variant="ghost" className="h-8 gap-2 hover:bg-emerald-50 text-emerald-600 font-bold"
+                      onClick={() => {
+                        setSelectedUser(u);
+                        setPointAmount('10');
+                        setIsPointDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      تعديل النقاط
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2 border-r pr-4 border-border">
+                    <Button 
+                      size="sm" variant="ghost" className="text-xs font-bold"
+                      onClick={() => handleToggleAdmin(u._id, !!u.isAdmin)}
+                    >
+                      {u.isAdmin ? <UserX className="h-4 w-4 ml-1" /> : <UserCheck className="h-4 w-4 ml-1" />}
+                      {u.isAdmin ? 'إزالة الإدارة' : 'تعيين إدارة'}
+                    </Button>
+                    <Button 
+                      size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteUser(u._id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="services" className="space-y-4">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {['all', 'open', 'active', 'confirming', 'completed'].map(status => (
+              <Badge 
+                key={status}
+                variant={serviceFilter === status ? 'default' : 'outline'}
+                className="cursor-pointer px-4 py-1.5 rounded-lg font-bold"
+                onClick={() => setServiceFilter(status)}
+              >
+                {status === 'all' ? 'الكل' : 
+                 status === 'open' ? 'مفتوح' : 
+                 status === 'active' ? 'نشط' : 
+                 status === 'confirming' ? 'بانتظار التأكيد' : 'مكتمل'}
+              </Badge>
+            ))}
+          </div>
+
+          <div className="grid gap-4">
+            {filteredServices.map(s => (
+              <Card key={s.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-border shadow-sm">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-bold text-foreground">{s.title}</h4>
+                    <Badge variant="secondary" className="text-[10px] py-0 px-2 uppercase">{s.status}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">طالب الخدمة: {s.requesterName}</p>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">المقابل</p>
+                    <p className="font-black text-primary">{s.points} نقطة</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 border-r pr-4 border-border">
+                    {s.status === 'active' && (
+                      <Button 
+                        size="sm" variant="outline" className="text-red-500 border-red-100 hover:bg-red-50"
+                        onClick={() => handleCancelService(s.id)}
+                      >
+                        <Ban className="h-4 w-4 ml-1" />
+                        إلغاء التنفيذ
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Point Adjustment Dialog */}
+      <Dialog open={isPointDialogOpen} onOpenChange={setIsPointDialogOpen}>
+        <DialogContent className="rounded-2xl max-w-sm border-border">
+          <DialogHeader>
+            <DialogTitle className="text-center font-black">تعديل نقاط المستخدم</DialogTitle>
+            <DialogDescription className="text-center">
+              تعديل رصيد النقاط لـ {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Coins className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase">الرصيد الحالي</p>
+                  <p className="text-lg font-black text-primary">{selectedUser?.points || 0}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold px-1">المبلغ (استخدم - للخصم)</label>
+              <div className="relative">
+                <Input 
+                  type="number"
+                  value={pointAmount}
+                  onChange={(e) => setPointAmount(e.target.value)}
+                  className="rounded-xl border-border h-12 bg-background pl-4 font-bold text-center text-xl"
+                  placeholder="مثال: 50 أو -50"
+                  autoFocus
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+                  <RefreshCcw className="h-4 w-4 text-muted-foreground animate-spin-slow" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button 
+              onClick={handleUpdatePoints}
+              className="w-full bg-primary text-white rounded-xl font-bold h-12 shadow-lg shadow-primary/20"
+            >
+              تأكيد التعديل
+            </Button>
+            <DialogClose render={<Button variant="ghost" className="w-full font-bold" />}>
+              إلغاء
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

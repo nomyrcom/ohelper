@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Phase 3: Primitives ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isAdminEmail() {
+      return isSignedIn() && request.auth.token.email in ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'];
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isAdminEmail() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+      );
+    }
+
+    // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['_id', 'name', 'email', 'points']) &&
+             data._id is string &&
+             data.name is string && data.name.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             data.points is number &&
+             (!data.keys().contains('ratingSum') || data.ratingSum is number) &&
+             (!data.keys().contains('ratingCount') || data.ratingCount is number);
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll(['title', 'requesterId', 'points', 'status', 'createdAt', 'city', 'category', 'description', 'requesterName']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.points is number && data.points >= 10 &&
+             data.status in ['open', 'active', 'confirming', 'completed'];
+    }
+
+    function isValidRating(data) {
+      return data.keys().hasAll(['serviceId', 'fromId', 'toId', 'rating', 'createdAt']) &&
+             data.fromId == request.auth.uid &&
+             data.fromId != data.toId &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'title', 'message', 'type', 'read', 'createdAt']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
+             data.type in ['message', 'status_change', 'point_transfer', 'system'] &&
+             data.read is bool &&
+             data.createdAt == request.time;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdminEmail();
+
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                      isValidUser(incoming()) &&
+                      incoming().points == 100 && 
+                      incoming().isAdmin == false;
+
+      allow update: if isSignedIn() && (
+        // Action: Self-Edit Profile
+        (isOwner(userId) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'city', 'bio', 'photoUrl', 'updatedAt', 'lastLogin'])) ||
+        
+        // Action: Point Transfer / Rating Admin
+        isAdmin() ||
+        
+        // Action: Service Completion Point Adjustment (Allowing points update during service finalization)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['points', 'updatedAt']) && 
+         (incoming().points == existing().points + incoming().diff(existing()).affectedKeys().contains('points') ? 0 : 0)) ||
+        
+        // Action: Receive Rating
+        (!isOwner(userId) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['ratingSum', 'ratingCount', 'updatedAt']))
+      );
+
+      match /notifications/{notificationId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+        allow update: if isSignedIn() && request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['read', 'updatedAt']);
+        allow create: if isSignedIn() && isValidNotification(incoming()); 
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    match /services/{serviceId} {
+      allow get: if resource.data.status == 'open' || isSignedIn();
+      allow list: if resource.data.status == 'open' || 
+                    (isSignedIn() && (resource.data.requesterId == request.auth.uid || resource.data.providerId == request.auth.uid || isAdminEmail()));
+
+      allow create: if isSignedIn() && isValidService(incoming()) && 
+                      incoming().requesterId == request.auth.uid &&
+                      incoming().status == 'open' && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn() && (
+        existing().status != 'completed' && (
+          isAdmin() ||
+          // Join
+          (existing().status == 'open' && incoming().status == 'active' && 
+           incoming().providerId == request.auth.uid && 
+           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'providerId', 'providerName', 'updatedAt'])) ||
+          // Confirmations & Completion
+          ((existing().requesterId == request.auth.uid || existing().providerId == request.auth.uid) &&
+           incoming().diff(existing()).affectedKeys().hasAny(['status', 'requesterConfirmed', 'providerConfirmed', 'updatedAt']))
+        )
+      );
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+      }
+
+      match /ratings/{ratingId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && 
+                        ratingId == request.auth.uid && 
+                        isValidRating(incoming()) &&
+                        get(/databases/$(database)/documents/services/$(serviceId)).data.status == 'completed';
+      }
+    }
+  }
+}
