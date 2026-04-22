@@ -69,7 +69,7 @@ export default function HomePage() {
           <Search className="h-6 w-6" />
         </button>
         <div className="flex flex-col items-center">
-            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">ي</div>
+            <img src="/512.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain shadow-sm" />
             <span className="text-[10px] font-bold text-primary mt-0.5">{t('common:app_name')}</span>
         </div>
         <div className="flex items-center space-x-2 rtl:space-x-reverse">

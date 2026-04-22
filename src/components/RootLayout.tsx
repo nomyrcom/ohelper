@@ -49,9 +49,7 @@ export default function RootLayout() {
       {/* Sidebar - Desktop Only */}
       <aside className="hidden md:flex w-64 bg-card border-l border-border flex-col p-6 shadow-sm shrink-0">
         <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl">
-            {t('common:app_name')[0]}
-          </div>
+          <img src="/512.png" alt="Logo" className="w-10 h-10 rounded-xl object-contain shadow-sm" />
           <h1 className="text-2xl font-bold text-foreground">{t('common:app_name')}</h1>
         </div>
 

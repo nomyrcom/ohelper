@@ -44,7 +44,7 @@ export default function SignUpPage() {
       </div>
       <Card className="w-full max-w-md p-8 border-border shadow-xl rounded-2xl">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white font-bold text-3xl mx-auto mb-4">ي</div>
+          <img src="/512.png" alt="Logo" className="w-16 h-16 rounded-2xl object-contain shadow-md mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">إنشاء حساب جديد</h1>
           <p className="text-muted-foreground text-sm mt-2">انضم إلى مجتمع "يا معين" اليوم</p>
         </div>
