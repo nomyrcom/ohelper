@@ -14,7 +14,7 @@ service cloud.firestore {
     function existing() { return resource.data; }
     
     function isAdminEmail() {
-      return isSignedIn() && ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'].contains(request.auth.token.email);
+      return isSignedIn() && request.auth.token.email in ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'];
     }
 
     function isAdmin() {
@@ -32,8 +32,8 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 &&
              data.email is string && data.email.size() > 0 &&
              data.points is number &&
-             (!data.keys().contains('ratingSum') || data.ratingSum is number) &&
-             (!data.keys().contains('ratingCount') || data.ratingCount is number);
+             (!('ratingSum' in data.keys()) || data.ratingSum is number) &&
+             (!('ratingCount' in data.keys()) || data.ratingCount is number);
     }
 
     function isValidService(data) {
@@ -59,7 +59,7 @@ service cloud.firestore {
              data.type in ['message', 'status_change', 'point_transfer', 'system'] &&
              data.read is bool &&
              data.createdAt == request.time &&
-             (!data.keys().contains('link') || (data.link is string && data.link.size() <= 500));
+             (!('link' in data.keys()) || (data.link is string && data.link.size() <= 500));
     }
 
     // --- Collection Rules ---
