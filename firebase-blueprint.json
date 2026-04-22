@@ -85,6 +85,31 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "Category": {
+      "title": "Service Category",
+      "description": "Dynamic service categories managed by admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nameAr", "nameEn"]
+    },
+    "City": {
+      "title": "City/Governorate",
+      "description": "Dynamic cities/governorates managed by admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nameAr", "nameEn"]
     }
   },
   "firestore": {
@@ -107,6 +132,14 @@
     "services/{serviceId}/ratings/{ratingId}": {
       "schema": "Rating",
       "description": "Ratings for users involved in the service"
+    },
+    "categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Managed service categories"
+    },
+    "cities/{cityId}": {
+      "schema": "City",
+      "description": "Managed cities/governorates"
     }
   }
 }

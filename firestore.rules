@@ -14,13 +14,14 @@ service cloud.firestore {
     function existing() { return resource.data; }
     
     function isAdminEmail() {
-      return isSignedIn() && request.auth.token.email in ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'];
+      return isSignedIn() && ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'].contains(request.auth.token.email);
     }
 
     function isAdmin() {
       return isSignedIn() && (
         isAdminEmail() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true)
       );
     }
 
@@ -57,14 +58,15 @@ service cloud.firestore {
              data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
              data.type in ['message', 'status_change', 'point_transfer', 'system'] &&
              data.read is bool &&
-             data.createdAt == request.time;
+             data.createdAt == request.time &&
+             (!data.keys().contains('link') || (data.link is string && data.link.size() <= 500));
     }
 
     // --- Collection Rules ---
 
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isAdminEmail();
+      allow list: if isAdmin();
 
       allow create: if isSignedIn() && request.auth.uid == userId && 
                       isValidUser(incoming()) &&
@@ -79,9 +81,8 @@ service cloud.firestore {
         // Action: Point Transfer / Rating Admin
         isAdmin() ||
         
-        // Action: Service Completion Point Adjustment (Allowing points update during service finalization)
-        (incoming().diff(existing()).affectedKeys().hasOnly(['points', 'updatedAt']) && 
-         (incoming().points == existing().points + incoming().diff(existing()).affectedKeys().contains('points') ? 0 : 0)) ||
+        // Action: Service Completion Point Adjustment
+        (incoming().diff(existing()).affectedKeys().hasOnly(['points', 'updatedAt'])) ||
         
         // Action: Receive Rating
         (!isOwner(userId) && 
@@ -89,7 +90,7 @@ service cloud.firestore {
       );
 
       match /notifications/{notificationId} {
-        allow get, list: if isSignedIn() && request.auth.uid == userId;
+        allow read, list: if isSignedIn() && request.auth.uid == userId;
         allow update: if isSignedIn() && request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['read', 'updatedAt']);
         allow create: if isSignedIn() && isValidNotification(incoming()); 
         allow delete: if isSignedIn() && request.auth.uid == userId;
@@ -98,8 +99,8 @@ service cloud.firestore {
 
     match /services/{serviceId} {
       allow get: if resource.data.status == 'open' || isSignedIn();
-      allow list: if resource.data.status == 'open' || 
-                    (isSignedIn() && (resource.data.requesterId == request.auth.uid || resource.data.providerId == request.auth.uid || isAdminEmail()));
+      allow list: if isAdmin() || resource.data.status == 'open' || 
+                    (isSignedIn() && (resource.data.requesterId == request.auth.uid || resource.data.providerId == request.auth.uid));
 
       allow create: if isSignedIn() && isValidService(incoming()) && 
                       incoming().requesterId == request.auth.uid &&
@@ -122,7 +123,10 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+        allow create: if isSignedIn() && (
+          incoming().senderId == request.auth.uid || 
+          (incoming().senderId == 'system' && (get(/databases/$(database)/documents/services/$(serviceId)).data.requesterId == request.auth.uid || get(/databases/$(database)/documents/services/$(serviceId)).data.providerId == request.auth.uid))
+        );
       }
     }
 
@@ -133,6 +137,17 @@ service cloud.firestore {
                       ratingId == request.auth.uid && 
                       isValidRating(incoming()) &&
                       get(/databases/$(database)/documents/services/$(incoming().serviceId)).data.status == 'completed';
+    }
+
+    // --- Dynamic Data Management ---
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /cities/{cityId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

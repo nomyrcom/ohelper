@@ -41,7 +41,21 @@ export default function ProfilePage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
 
+  const [cities, setCities] = useState<City[]>([]);
+  const [loadingCities, setLoadingCities] = useState(true);
+
   const isOwnProfile = !userId || userId === currentUser?._id;
+
+  useEffect(() => {
+    // Fetch cities from firestore
+    const citiesQuery = query(collection(db, 'cities'), orderBy('nameAr', 'asc'));
+    const unsubscribe = onSnapshot(citiesQuery, (snapshot) => {
+      const citiesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as City));
+      setCities(citiesList);
+      setLoadingCities(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -154,10 +168,8 @@ export default function ProfilePage() {
     { id: '1', reason: t('common:signup_bonus') || 'مكافأة تسجيل', amount: 100, date: '2026-04-10', type: 'credit' },
   ];
 
-  if (loading) return <div className="p-10 text-center font-bold">{t('common:loading_profile')}...</div>;
+  if (loading || loadingCities) return <div className="p-10 text-center font-bold">{t('common:loading_profile')}...</div>;
   if (!profileUser) return <div className="p-10 text-center">{t('common:user_not_found')}</div>;
-
-  const cities: City[] = ['sanaa', 'aden', 'taiz', 'hodeidah', 'ibb', 'mukalla', 'dhamar', 'other'];
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-4xl mx-auto">
@@ -185,7 +197,11 @@ export default function ProfilePage() {
           
           <div className="text-center md:text-right flex-1">
             <h2 className="text-2xl font-black text-foreground">{profileUser.name}</h2>
-            <p className="text-muted-foreground font-medium mb-2">{t(`common:${profileUser.city}`)}، اليمن</p>
+            <p className="text-muted-foreground font-medium mb-2">
+              {typeof profileUser.city === 'object' 
+                ? (lng === 'ar' ? profileUser.city.nameAr : profileUser.city.nameEn) 
+                : t(`common:${profileUser.city}`)}، اليمن
+            </p>
             {profileUser.bio && (
               <p className="text-sm text-muted-foreground line-clamp-2 max-w-md mb-4 mx-auto md:mx-0 leading-relaxed font-medium">
                 {profileUser.bio}
@@ -199,14 +215,12 @@ export default function ProfilePage() {
 
           {isOwnProfile && (
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
-              <DialogTrigger
-                render={
-                  <Button variant="outline" className="rounded-full px-6 h-10 gap-2 border-border shadow-sm hover:bg-muted shrink-0">
-                    <Edit2 className="h-4 w-4" />
-                    <span className="text-sm font-bold">{t('common:edit_data') || 'تعديل البيانات'}</span>
-                  </Button>
-                }
-              />
+              <DialogTrigger asChild>
+                <Button variant="outline" className="rounded-full px-6 h-10 gap-2 border-border shadow-sm hover:bg-muted shrink-0">
+                  <Edit2 className="h-4 w-4" />
+                  <span className="text-sm font-bold">{t('common:edit_data') || 'تعديل البيانات'}</span>
+                </Button>
+              </DialogTrigger>
               <DialogContent className="rounded-2xl max-w-md border-border p-8">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-black text-foreground">{t('common:edit_profile') || 'تعديل ملفك الشخصي'}</DialogTitle>
@@ -224,14 +238,17 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="city" className="px-1 text-sm font-bold">{t('common:city') || 'المدينة'}</Label>
-                    <Select value={editCity} onValueChange={(v: City) => setEditCity(v)}>
+                    <Select value={typeof editCity === 'object' ? editCity.id : editCity} onValueChange={(v) => {
+                      const selectedCity = cities.find(c => c.id === v);
+                      setEditCity(selectedCity || v as any);
+                    }}>
                       <SelectTrigger className="rounded-xl h-11 border-border">
                         <SelectValue placeholder={t('common:select_city') || "اختر المدينة..."} />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl">
+                      <SelectContent className="rounded-xl font-sans">
                         {cities.map((city) => (
-                          <SelectItem key={city} value={city}>
-                            {t(`common:${city}`)}
+                          <SelectItem key={city.id} value={city.id}>
+                            {lng === 'ar' ? city.nameAr : city.nameEn}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -249,7 +266,9 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0">
-                  <DialogClose render={<Button variant="ghost" className="rounded-xl flex-1 font-bold">{t('common:cancel') || 'إلغاء'}</Button>} />
+                  <DialogClose asChild>
+                    <Button variant="ghost" className="rounded-xl flex-1 font-bold">{t('common:cancel') || 'إلغاء'}</Button>
+                  </DialogClose>
                   <Button 
                     onClick={handleSaveProfile} 
                     disabled={isSaving}
@@ -520,7 +539,9 @@ export default function ProfilePage() {
             )}
           </div>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" className="rounded-xl w-full font-bold">{t('common:close') || 'إغلاق'}</Button>} />
+            <DialogClose asChild>
+              <Button variant="outline" className="rounded-xl w-full font-bold">{t('common:close') || 'إغلاق'}</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>

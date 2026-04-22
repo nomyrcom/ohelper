@@ -19,12 +19,13 @@ import {
   Users, ClipboardList, CheckCircle, Ban, TrendingUp, 
   Search, Shield, Trash2, Plus, Minus, UserCheck, 
   UserX, AlertCircle, RefreshCcw, Coins, Star, ChevronRight,
-  User as UserIcon, Mail, MapPin, Calendar
+  User as UserIcon, Mail, MapPin, Calendar, LayoutGrid, Map as MapIcon
 } from 'lucide-react';
-import { User, Service } from '@/types';
+import { User, Service, Category, City } from '@/types';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { motion, AnimatePresence } from 'motion/react';
+import { addDoc } from 'firebase/firestore';
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -40,6 +41,8 @@ export default function AdminPage() {
   // Management Lists
   const [users, setUsers] = useState<User[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,13 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pointAmount, setPointAmount] = useState('0');
   const [isPointDialogOpen, setIsPointDialogOpen] = useState(false);
+
+  // Category/City Dialog State
+  const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+  const [manageType, setManageType] = useState<'category' | 'city'>('category');
+  const [editItem, setEditItem] = useState<any>(null);
+  const [nameAr, setNameAr] = useState('');
+  const [nameEn, setNameEn] = useState('');
 
   const { user: currentUser } = useAuth();
 
@@ -102,14 +112,68 @@ export default function AdminPage() {
       setServices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Service)));
     });
 
+    const unsubCategories = onSnapshot(query(collection(db, 'categories'), orderBy('nameAr', 'asc')), (snap) => {
+      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+    });
+
+    const unsubCities = onSnapshot(query(collection(db, 'cities'), orderBy('nameAr', 'asc')), (snap) => {
+      setCities(snap.docs.map(d => ({ id: d.id, ...d.data() } as City)));
+    });
+
     fetchStats();
     setLoading(false);
 
     return () => {
       unsubUsers();
       unsubServices();
+      unsubCategories();
+      unsubCities();
     };
   }, [currentUser?.isAdmin]);
+
+  const handleSaveManageItem = async () => {
+    if (!nameAr || !nameEn) {
+      toast.error('يرجى ملء جميع الحقول');
+      return;
+    }
+
+    const colName = manageType === 'category' ? 'categories' : 'cities';
+    
+    try {
+      if (editItem) {
+        await updateDoc(doc(db, colName, editItem.id), {
+          nameAr,
+          nameEn,
+          updatedAt: serverTimestamp()
+        });
+        toast.success(t('update_success'));
+      } else {
+        await addDoc(collection(db, colName), {
+          nameAr,
+          nameEn,
+          createdAt: serverTimestamp()
+        });
+        toast.success(t('add_success'));
+      }
+      setIsManageDialogOpen(false);
+      setNameAr('');
+      setNameEn('');
+      setEditItem(null);
+    } catch (error) {
+      toast.error('فشل الحفظ');
+    }
+  };
+
+  const handleDeleteManageItem = async (id: string, type: 'category' | 'city') => {
+    if (!confirm(t('delete_confirm'))) return;
+    const colName = type === 'category' ? 'categories' : 'cities';
+    try {
+      await deleteDoc(doc(db, colName, id));
+      toast.success(t('delete_success'));
+    } catch (error) {
+      toast.error('فشل الحذف');
+    }
+  };
 
   const handleUpdatePoints = async () => {
     if (!selectedUser || !pointAmount) return;
@@ -213,6 +277,8 @@ export default function AdminPage() {
         <TabsList className="bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="users" className="rounded-lg font-bold px-8">المستخدمين</TabsTrigger>
           <TabsTrigger value="services" className="rounded-lg font-bold px-8">الخدمات</TabsTrigger>
+          <TabsTrigger value="categories" className="rounded-lg font-bold px-8">{t('categories')}</TabsTrigger>
+          <TabsTrigger value="cities" className="rounded-lg font-bold px-8">{t('governorates')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
@@ -336,6 +402,114 @@ export default function AdminPage() {
             ))}
           </div>
         </TabsContent>
+
+        <TabsContent value="categories" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-lg">{t('manage_categories')}</h3>
+            <Button 
+              className="gap-2 rounded-xl font-bold"
+              onClick={() => {
+                setManageType('category');
+                setEditItem(null);
+                setNameAr('');
+                setNameEn('');
+                setIsManageDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              {t('add_category')}
+            </Button>
+          </div>
+          <div className="grid gap-3">
+            {categories.map(cat => (
+              <Card key={cat.id} className="p-4 flex items-center justify-between border-border shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <LayoutGrid className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold">{cat.nameAr}</p>
+                    <p className="text-xs text-muted-foreground">{cat.nameEn}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" size="sm" className="font-bold"
+                    onClick={() => {
+                      setManageType('category');
+                      setEditItem(cat);
+                      setNameAr(cat.nameAr);
+                      setNameEn(cat.nameEn);
+                      setIsManageDialogOpen(true);
+                    }}
+                  >
+                    {t('edit_data')}
+                  </Button>
+                  <Button 
+                    variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDeleteManageItem(cat.id, 'category')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="cities" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-lg">{t('manage_cities')}</h3>
+            <Button 
+              className="gap-2 rounded-xl font-bold"
+              onClick={() => {
+                setManageType('city');
+                setEditItem(null);
+                setNameAr('');
+                setNameEn('');
+                setIsManageDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              {t('add_city')}
+            </Button>
+          </div>
+          <div className="grid gap-3">
+            {cities.map(city => (
+              <Card key={city.id} className="p-4 flex items-center justify-between border-border shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <MapIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold">{city.nameAr}</p>
+                    <p className="text-xs text-muted-foreground">{city.nameEn}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" size="sm" className="font-bold"
+                    onClick={() => {
+                      setManageType('city');
+                      setEditItem(city);
+                      setNameAr(city.nameAr);
+                      setNameEn(city.nameEn);
+                      setIsManageDialogOpen(true);
+                    }}
+                  >
+                    {t('edit_data')}
+                  </Button>
+                  <Button 
+                    variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDeleteManageItem(city.id, 'city')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Point Adjustment Dialog */}
@@ -384,9 +558,48 @@ export default function AdminPage() {
             >
               تأكيد التعديل
             </Button>
-            <DialogClose render={<Button variant="ghost" className="w-full font-bold" />}>
-              إلغاء
+            <DialogClose asChild>
+              <Button variant="ghost" className="w-full font-bold">إلغاء</Button>
             </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category/City Manage Dialog */}
+      <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+        <DialogContent className="rounded-2xl max-w-sm border-border">
+          <DialogHeader>
+            <DialogTitle className="text-center font-black">
+              {editItem ? (manageType === 'category' ? t('edit_category') : t('edit_city')) : (manageType === 'category' ? t('add_category') : t('add_city'))}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold px-1">{t('name_ar')}</label>
+              <Input 
+                value={nameAr}
+                onChange={(e) => setNameAr(e.target.value)}
+                className="rounded-xl border-border h-12 bg-background font-bold text-right"
+                placeholder="مثال: تعليم"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold px-1">{t('name_en')}</label>
+              <Input 
+                value={nameEn}
+                onChange={(e) => setNameEn(e.target.value)}
+                className="rounded-xl border-border h-12 bg-background font-bold text-left"
+                placeholder="Example: Education"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button 
+              onClick={handleSaveManageItem}
+              className="w-full bg-primary text-white rounded-xl font-bold h-12 shadow-lg shadow-primary/20"
+            >
+              {t('save')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

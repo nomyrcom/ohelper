@@ -140,13 +140,21 @@ export default function RootLayout() {
             
             <ThemeToggle />
             
-            <div className="flex items-center gap-3 bg-card p-1.5 px-4 border border-border rounded-full shadow-sm">
-              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-bold border border-border">
-                {user?.name?.[0] || t('common:app_name')[0]}
+            <div className="flex items-center gap-3 bg-card p-1.5 px-4 border border-border rounded-full shadow-sm hover:border-primary/30 transition-all cursor-pointer" onClick={() => navigate(`/${lng}/profile`)}>
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-bold border border-border overflow-hidden">
+                {user?.photoUrl ? (
+                  <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user?.name?.[0] || 'ي'
+                )}
               </div>
               <div className="rtl:text-right ltr:text-left">
                 <p className="text-xs font-bold">{user?.name || t('common:welcome')}</p>
-                <p className="text-[10px] text-muted-foreground">{t('common:sana\'a')}, {lng === 'ar' ? 'اليمن' : 'Yemen'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                  {typeof user?.city === 'object' 
+                    ? (lng === 'ar' ? user.city.nameAr : user.city.nameEn) 
+                    : t(`common:${user?.city || 'sanaa'}`)}
+                </p>
               </div>
             </div>
           </div>

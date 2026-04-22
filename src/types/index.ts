@@ -1,5 +1,18 @@
-export type City = 'sanaa' | 'aden' | 'taiz' | 'hodeidah' | 'ibb' | 'mukalla' | 'dhamar' | 'other';
-export type Category = 'education' | 'tech' | 'design' | 'health' | 'home' | 'transport' | 'other';
+export type City = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  createdAt?: any;
+};
+
+export type Category = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  icon?: string;
+  createdAt?: any;
+};
+
 export type ServiceStatus = 'open' | 'active' | 'confirming' | 'completed';
 
 export interface User {
@@ -9,7 +22,7 @@ export interface User {
   email?: string;
   bio?: string;
   photoUrl?: string;
-  city?: City;
+  city?: City | string;
   points: number;
   ratingSum: number;
   ratingCount: number;
@@ -19,13 +32,13 @@ export interface User {
 export interface Service {
   id: string;
   requesterId: string;
-  requesterName?: string;
+  requesterName: string;
   providerId?: string;
   providerName?: string;
   title: string;
   description: string;
-  category: string;
-  city: string;
+  category: Category | string;
+  city: City | string;
   points: number;
   status: ServiceStatus;
   requesterConfirmed?: boolean;
@@ -37,7 +50,7 @@ export interface Service {
 export interface Message {
   id: string;
   senderId: string;
-  senderName?: string;
+  senderName: string;
   text: string;
   createdAt: any;
   type?: 'text' | 'system';

@@ -12,10 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronRight, ArrowLeft, Coins, Send, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
-import { motion } from 'motion/react';
-import { collection, addDoc, serverTimestamp, runTransaction, doc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, runTransaction, doc, increment, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Category, City } from '@/types';
 
 const postSchema = z.object({
   title: z.string().min(5, 'العنوان قصير جداً'),
@@ -39,11 +39,30 @@ export default function PostPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
 
-  const onSubmit = async (data: any) => {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [catSnap, citySnap] = await Promise.all([
+          getDocs(query(collection(db, 'categories'), orderBy('nameAr', 'asc'))),
+          getDocs(query(collection(db, 'cities'), orderBy('nameAr', 'asc')))
+        ]);
+        
+        setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+        setCities(citySnap.docs.map(d => ({ id: d.id, ...d.data() } as City)));
+      } catch (error) {
+        console.error("Error fetching categories/cities:", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const onSubmit = async (values: z.infer<typeof postSchema>) => {
     if (!user) return;
     
-    if (user.points < data.points) {
+    if (user.points < values.points) {
       toast.error('رصيدك من النقاط غير كافٍ');
       return;
     }
@@ -52,7 +71,6 @@ export default function PostPage() {
       setIsSubmitting(true);
       
       await runTransaction(db, async (transaction) => {
-        // 1. Get user doc to verify points
         const userRef = doc(db, 'users', user._id);
         const userDoc = await transaction.get(userRef);
         
@@ -61,15 +79,14 @@ export default function PostPage() {
         }
 
         const currentPoints = userDoc.data()?.points || 0;
-        if (currentPoints < data.points) {
+        if (currentPoints < values.points) {
           throw new Error('رصيدك من النقاط غير كافٍ');
         }
 
-        // 2. Create service doc
         const servicesCol = collection(db, 'services');
         const serviceRef = doc(servicesCol);
         transaction.set(serviceRef, {
-          ...data,
+          ...values,
           requesterId: user._id,
           requesterName: user.name || 'مستخدم',
           status: 'open',
@@ -77,9 +94,8 @@ export default function PostPage() {
           updatedAt: serverTimestamp(),
         });
 
-        // 3. Deduct points
         transaction.update(userRef, {
-          points: increment(-data.points)
+          points: increment(-values.points)
         });
       });
       
@@ -93,17 +109,8 @@ export default function PostPage() {
     }
   };
 
-  const cities = [
-    'sanaa', 'aden', 'taiz', 'hodeidah', 'ibb', 'mukalla', 'dhamar', 'other'
-  ];
-
-  const categories = [
-    'education', 'maintenance', 'tech', 'transport', 'other'
-  ];
-
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-2xl mx-auto min-h-screen">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
           variant="outline" 
@@ -116,7 +123,6 @@ export default function PostPage() {
         <h1 className="text-2xl font-bold text-foreground">{t('common:post_service')}</h1>
       </div>
 
-      {/* Balance Box */}
       <Card className="p-6 bg-accent border-primary/20 flex items-center justify-between rounded-2xl shadow-sm relative overflow-hidden">
         <div className="flex items-center gap-4 relative z-10">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
@@ -130,7 +136,6 @@ export default function PostPage() {
         <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-12 -mt-12" />
       </Card>
 
-      {/* Post Form */}
       <Card className="p-6 md:p-8 rounded-2xl border-border bg-card shadow-sm">
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">
@@ -163,7 +168,9 @@ export default function PostPage() {
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   {categories.map(c => (
-                    <SelectItem key={c} value={c}>{t(`common:${c}`)}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {lng === 'ar' ? c.nameAr : c.nameEn}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -176,7 +183,9 @@ export default function PostPage() {
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   {cities.map(c => (
-                    <SelectItem key={c} value={c}>{t(`common:${c}`)}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {lng === 'ar' ? c.nameAr : c.nameEn}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -203,8 +212,12 @@ export default function PostPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-14 bg-primary text-white rounded-xl text-lg font-black shadow-lg shadow-primary/20 hover:scale-[1.01] transition-transform flex items-center gap-2">
-            <Send className="h-5 w-5" />
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="w-full h-14 bg-primary text-white rounded-xl text-lg font-black shadow-lg shadow-primary/20 hover:scale-[1.01] transition-transform flex items-center gap-2"
+          >
+            {isSubmitting ? <span className="animate-spin">🔄</span> : <Send className="h-5 w-5" />}
             نشر الطلب الآن
           </Button>
         </form>

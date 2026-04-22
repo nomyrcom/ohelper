@@ -8,9 +8,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useNotifications } from '@/hooks/use-notifications';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Service } from '@/types';
+import { Service, Category, City } from '@/types';
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -20,10 +20,18 @@ export default function HomePage() {
   const { unreadCount } = useNotifications();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
 
   useEffect(() => {
-    // We allow public listing of open services now, but if we want to track user context (like points), 
-    // we should wait for user or just let it run.
+    const fetchData = async () => {
+      const catSnap = await getDocs(query(collection(db, 'categories'), orderBy('nameAr', 'asc')));
+      const citySnap = await getDocs(query(collection(db, 'cities'), orderBy('nameAr', 'asc')));
+      setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+      setCities(citySnap.docs.map(d => ({ id: d.id, ...d.data() } as City)));
+    };
+    fetchData();
+
     const q = query(
       collection(db, 'services'),
       where('status', '==', 'open'),
@@ -42,24 +50,29 @@ export default function HomePage() {
     return () => unsubscribe();
   }, [user]);
 
+  const getCategoryLabel = (id: string) => {
+    const cat = categories.find(c => c.id === id);
+    if (!cat) return t(`services:${id}`);
+    return lng === 'ar' ? cat.nameAr : cat.nameEn;
+  };
+
+  const getCityLabel = (id: string) => {
+    const city = cities.find(c => c.id === id);
+    if (!city) return t(`common:${id}`);
+    return lng === 'ar' ? city.nameAr : city.nameEn;
+  };
+   
   const getTagColor = (category: string) => {
+    // We can use a simple hash of the ID to pick a color if needed, 
+    // or just default based on common categories.
     switch (category) {
       case 'education': return 'bg-emerald-50 text-emerald-600';
       case 'maintenance': return 'bg-orange-50 text-orange-600';
       case 'tech': return 'bg-blue-50 text-blue-600';
       case 'transport': return 'bg-slate-50 text-slate-600';
-      case 'design': return 'bg-purple-50 text-purple-600';
       default: return 'bg-gray-50 text-gray-600';
     }
   };
-
-  const categories = [
-    { id: 'all', label: t('services:all') },
-    { id: 'tech', label: t('services:tech') },
-    { id: 'education', label: t('services:education') },
-    { id: 'maintenance', label: t('services:maintenance') },
-    { id: 'design', label: t('services:design') },
-  ];
 
   return (
     <div className="p-4 md:p-8 space-y-8">
@@ -133,17 +146,19 @@ export default function HomePage() {
 
       {/* Category Tabs */}
       <section className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-        {categories.map((cat, idx) => (
+        <button
+          onClick={() => navigate(`/${lng}/services`)}
+          className="px-5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap border shrink-0 bg-primary text-white border-primary shadow-sm"
+        >
+          {t('services:all')}
+        </button>
+        {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => navigate(`/${lng}/services`)}
-            className={`px-5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap border shrink-0 ${
-              idx === 0 
-                ? 'bg-primary text-white border-primary shadow-sm' 
-                : 'bg-card border-border text-muted-foreground hover:border-primary hover:text-primary'
-            }`}
+            onClick={() => navigate(`/${lng}/services?category=${cat.id}`)}
+            className="px-5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap border shrink-0 bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"
           >
-            {cat.label}
+            {lng === 'ar' ? cat.nameAr : cat.nameEn}
           </button>
         ))}
       </section>
@@ -163,7 +178,7 @@ export default function HomePage() {
               <Card className={`h-full p-5 flex flex-col rounded-2xl border border-border shadow-sm hover:shadow-md transition-all cursor-pointer group hover:border-primary/30`}>
                 <div className="flex justify-between items-start mb-4">
                   <Badge variant="secondary" className={`${getTagColor(service.category)} border-0 rounded px-2 py-1 text-[10px] font-bold uppercase`}>
-                    {t(`services:${service.category}`)}
+                    {getCategoryLabel(service.category)}
                   </Badge>
                   <span className="text-primary font-bold text-sm">+{service.points} {t('common:points')}</span>
                 </div>
@@ -179,7 +194,7 @@ export default function HomePage() {
                   </div>
                   <span className="text-xs font-medium text-foreground truncate max-w-[100px]">{service.requesterName}</span>
                   <span className="text-[10px] text-muted-foreground mr-auto">
-                    {t(`common:${service.city}`)} • {service.createdAt?.toDate?.()?.toLocaleDateString() || t('common:now')}
+                    {getCityLabel(service.city)} • {service.createdAt?.toDate?.()?.toLocaleDateString() || t('common:now')}
                   </span>
                 </div>
               </Card>

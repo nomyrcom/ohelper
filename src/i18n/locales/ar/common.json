@@ -65,5 +65,20 @@
   "profile_of": "ملف",
   "requested": "طلبته",
   "provided": "قدمته",
-  "now": "الآن"
+  "now": "الآن",
+  "admin_dashboard": "لوحة الإدارة",
+  "governorates": "المحافظات",
+  "manage_categories": "إدارة التصنيفات",
+  "manage_cities": "إدارة المدن/المحافظات",
+  "add_category": "إضافة تصنيف",
+  "edit_category": "تعديل تصنيف",
+  "add_city": "إضافة مدينة",
+  "edit_city": "تعديل مدينة",
+  "name_ar": "الاسم (بالعربي)",
+  "name_en": "الاسم (بالإنجليزي)",
+  "actions": "الإجراءات",
+  "delete_confirm": "هل أنت متأكد من الحذف؟",
+  "add_success": "تمت الإضافة بنجاح",
+  "update_success": "تم التعديل بنجاح",
+  "delete_success": "تم الحذف بنجاح"
 }

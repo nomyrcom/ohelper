@@ -65,5 +65,20 @@
   "profile_of": "Profile of",
   "requested": "Requested",
   "provided": "Provided",
-  "now": "Now"
+  "now": "Now",
+  "admin_dashboard": "Admin Dashboard",
+  "governorates": "Governorates",
+  "manage_categories": "Manage Categories",
+  "manage_cities": "Manage Governorates",
+  "add_category": "Add Category",
+  "edit_category": "Edit Category",
+  "add_city": "Add Governorate",
+  "edit_city": "Edit Governorate",
+  "name_ar": "Name (Arabic)",
+  "name_en": "Name (English)",
+  "actions": "Actions",
+  "delete_confirm": "Are you sure you want to delete?",
+  "add_success": "Added successfully",
+  "update_success": "Updated successfully",
+  "delete_success": "Deleted successfully"
 }
