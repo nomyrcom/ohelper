@@ -38,6 +38,7 @@ export default function ChatRoomPage() {
   const [comment, setComment] = useState('');
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [hasRated, setHasRated] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
 
   useEffect(() => {
     if (!serviceId || !user) return;
@@ -150,11 +151,8 @@ export default function ChatRoomPage() {
       if ((isRequester && service.providerConfirmed) || (!isRequester && service.requesterConfirmed)) {
         update.status = 'completed';
         
-        // Point transfer
+        // Point transfer (Deduction already happened at post)
         if (service.providerId) {
-          batch.update(doc(db, 'users', service.requesterId), { 
-            points: increment(-service.points) 
-          });
           batch.update(doc(db, 'users', service.providerId), { 
             points: increment(service.points) 
           });
@@ -223,6 +221,8 @@ export default function ChatRoomPage() {
       batch.set(ratingRef, {
         serviceId,
         fromId: user._id,
+        fromName: user.name,
+        fromPhotoUrl: user.photoUrl || '',
         toId: recipientId,
         rating,
         comment,
@@ -258,6 +258,46 @@ export default function ChatRoomPage() {
       toast.error('فشل إرسال التقييم');
     } finally {
       setIsSubmittingRating(false);
+    }
+  };
+
+  const handleAcceptService = async () => {
+    if (!user || !service || !serviceId) return;
+    
+    try {
+      setIsAccepting(true);
+      await updateDoc(doc(db, 'services', serviceId), {
+        status: 'active',
+        providerId: user._id,
+        providerName: user.name || 'مزود خدمة',
+        updatedAt: serverTimestamp()
+      });
+
+      await addDoc(collection(db, 'services', serviceId, 'messages'), {
+        senderId: 'system',
+        senderName: 'نظام',
+        text: `قبل ${user.name} مساعدتك بعد المشاورة. يمكنكما متابعة التحدث.`,
+        createdAt: serverTimestamp(),
+        type: 'system'
+      });
+
+      // Create Notification for the requester
+      await addDoc(collection(db, 'users', service.requesterId, 'notifications'), {
+        userId: service.requesterId,
+        title: 'تم قبول طلبك',
+        message: `قام ${user.name} بقبول طلبك بعد الدردشة: ${service.title}`,
+        type: 'status_change',
+        link: `/${lng}/chat/${service.id}`,
+        read: false,
+        createdAt: serverTimestamp()
+      });
+
+      toast.success('تم قبول الطلب بنجاح!');
+    } catch (error) {
+      console.error(error);
+      toast.error('خطأ في قبول الطلب');
+    } finally {
+      setIsAccepting(false);
     }
   };
 
@@ -397,6 +437,25 @@ export default function ChatRoomPage() {
 
       {/* Interaction Bar (Confirmations, Banners, etc.) */}
       <div className="px-4 py-2 space-y-2">
+        {service.status === 'open' && !isRequester && (
+          <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-primary font-bold text-sm">
+              <ShieldCheck className="h-5 w-5" />
+              أنت الآن في مرحلة التشاور قبل البدء
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              يمكنك مناقشة التفاصيل مع صاحب الطلب. بمجرد الاتفاق، انقر على زر القبول أدناه للبدء رسمياً وتجميد النقاط.
+            </p>
+            <Button 
+              onClick={handleAcceptService}
+              disabled={isAccepting}
+              className="w-full bg-primary text-white rounded-xl font-bold h-12 shadow-lg shadow-primary/20 transition-all hover:scale-[1.01]"
+            >
+              {isAccepting ? 'جاري القبول...' : 'قبول الطلب والبدء الآن'}
+            </Button>
+          </div>
+        )}
+
         {service.status === 'completed' ? (
           !hasRated ? (
             <Button 

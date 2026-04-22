@@ -15,7 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { City, Service } from '@/types';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, collectionGroup, getDocs } from 'firebase/firestore';
+// ...
 import { db } from '@/lib/firebase';
 
 export default function ProfilePage() {
@@ -34,6 +35,11 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'services'>('services');
   const [userServices, setUserServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
+
+  // Reviews state
+  const [showReviews, setShowReviews] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   const isOwnProfile = !userId || userId === currentUser?._id;
 
@@ -54,19 +60,40 @@ export default function ProfilePage() {
           if (userDoc.exists()) {
             setProfileUser({ ...userDoc.data(), _id: userDoc.id });
           } else {
-            toast.error('المستخدم غير موجود');
+            toast.error(t('common:user_not_found') || 'المستخدم غير موجود');
             navigate(`/${lng}/`);
           }
         } catch (error) {
           console.error(error);
-          toast.error('حدث خطأ أثناء تحميل الملف الشخصي');
+          toast.error(t('common:error_loading_profile') || 'حدث خطأ أثناء تحميل الملف الشخصي');
         } finally {
           setLoading(false);
         }
       }
     }
     fetchProfile();
-  }, [userId, currentUser, isOwnProfile, lng, navigate]);
+  }, [userId, currentUser, isOwnProfile, lng, navigate, t]);
+
+  const fetchReviews = async () => {
+    if (!profileUser?._id) return;
+    setLoadingReviews(true);
+    setShowReviews(true);
+    try {
+      const q = query(
+        collectionGroup(db, 'ratings'),
+        where('toId', '==', profileUser._id),
+        orderBy('createdAt', 'desc')
+      );
+      const snap = await getDocs(q);
+      const fetchedReviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setReviews(fetchedReviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      toast.error(t('common:error_loading_reviews') || 'حدث خطأ أثناء تحميل التقييمات');
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
   useEffect(() => {
     if (profileUser) {
@@ -124,13 +151,11 @@ export default function ProfilePage() {
   };
 
   const transactions = [
-    { id: '1', reason: 'مكافأة تسجيل', amount: 100, date: '2026-04-10', type: 'credit' },
-    { id: '2', reason: 'خدمة لغة عربية', amount: -20, date: '2026-04-15', type: 'debit' },
-    { id: '3', reason: 'تقديم استشارة تقنية', amount: 150, date: '2026-04-18', type: 'credit' },
+    { id: '1', reason: t('common:signup_bonus') || 'مكافأة تسجيل', amount: 100, date: '2026-04-10', type: 'credit' },
   ];
 
-  if (loading) return <div className="p-10 text-center font-bold">جاري تحميل الملف الشخصي...</div>;
-  if (!profileUser) return <div className="p-10 text-center">المستخدم غير موجود</div>;
+  if (loading) return <div className="p-10 text-center font-bold">{t('common:loading_profile')}...</div>;
+  if (!profileUser) return <div className="p-10 text-center">{t('common:user_not_found')}</div>;
 
   const cities: City[] = ['sanaa', 'aden', 'taiz', 'hodeidah', 'ibb', 'mukalla', 'dhamar', 'other'];
 
@@ -139,7 +164,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">
-          {isOwnProfile ? 'الملف الشخصي' : `ملف ${profileUser.name}`}
+          {isOwnProfile ? t('common:profile') : `${t('common:profile_of') || 'ملف'} ${profileUser.name}`}
         </h1>
         {isOwnProfile && (
           <Button variant="outline" size="icon" className="rounded-full h-10 w-10 border-border bg-card shadow-sm">
@@ -167,8 +192,8 @@ export default function ProfilePage() {
               </p>
             )}
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              <Badge variant="secondary" className="bg-accent text-primary rounded-full px-3 border-0 py-1 font-bold text-[10px] uppercase">مستخدم موثوق</Badge>
-              <Badge variant="secondary" className="bg-blue-50 text-blue-600 rounded-full px-3 border-0 py-1 font-bold text-[10px] uppercase">متطوع نشط</Badge>
+              <Badge variant="secondary" className="bg-accent text-primary rounded-full px-3 border-0 py-1 font-bold text-[10px] uppercase">{t('common:trusted_user') || 'مستخدم موثوق'}</Badge>
+              <Badge variant="secondary" className="bg-blue-50 text-blue-600 rounded-full px-3 border-0 py-1 font-bold text-[10px] uppercase">{t('common:active_volunteer') || 'متطوع نشط'}</Badge>
             </div>
           </div>
 
@@ -178,30 +203,30 @@ export default function ProfilePage() {
                 render={
                   <Button variant="outline" className="rounded-full px-6 h-10 gap-2 border-border shadow-sm hover:bg-muted shrink-0">
                     <Edit2 className="h-4 w-4" />
-                    <span className="text-sm font-bold">تعديل البيانات</span>
+                    <span className="text-sm font-bold">{t('common:edit_data') || 'تعديل البيانات'}</span>
                   </Button>
                 }
               />
               <DialogContent className="rounded-2xl max-w-md border-border p-8">
                 <DialogHeader>
-                  <DialogTitle className="text-xl font-black text-foreground">تعديل ملفك الشخصي</DialogTitle>
+                  <DialogTitle className="text-xl font-black text-foreground">{t('common:edit_profile') || 'تعديل ملفك الشخصي'}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="px-1 text-sm font-bold">الاسم الكامل</Label>
+                    <Label htmlFor="name" className="px-1 text-sm font-bold">{t('common:full_name') || 'الاسم الكامل'}</Label>
                     <Input 
                       id="name" 
                       value={editName} 
                       onChange={(e) => setEditName(e.target.value)}
-                      placeholder="اسمك هنا..."
+                      placeholder={t('common:name') || "اسمك هنا..."}
                       className="rounded-xl h-11 border-border"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="city" className="px-1 text-sm font-bold">المدينة</Label>
+                    <Label htmlFor="city" className="px-1 text-sm font-bold">{t('common:city') || 'المدينة'}</Label>
                     <Select value={editCity} onValueChange={(v: City) => setEditCity(v)}>
                       <SelectTrigger className="rounded-xl h-11 border-border">
-                        <SelectValue placeholder="اختر المدينة..." />
+                        <SelectValue placeholder={t('common:select_city') || "اختر المدينة..."} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
                         {cities.map((city) => (
@@ -213,24 +238,24 @@ export default function ProfilePage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bio" className="px-1 text-sm font-bold">نبذة تعريفية</Label>
+                    <Label htmlFor="bio" className="px-1 text-sm font-bold">{t('common:bio') || 'نبذة تعريفية'}</Label>
                     <Textarea 
                       id="bio" 
                       value={editBio} 
                       onChange={(e) => setEditBio(e.target.value)}
-                      placeholder="أخبر المجتمع شيئاً عنك..."
+                      placeholder={t('common:bio_placeholder') || "أخبر المجتمع شيئاً عنك..."}
                       className="rounded-xl min-h-[100px] border-border leading-relaxed"
                     />
                   </div>
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0">
-                  <DialogClose render={<Button variant="ghost" className="rounded-xl flex-1 font-bold">إلغاء</Button>} />
+                  <DialogClose render={<Button variant="ghost" className="rounded-xl flex-1 font-bold">{t('common:cancel') || 'إلغاء'}</Button>} />
                   <Button 
                     onClick={handleSaveProfile} 
                     disabled={isSaving}
                     className="rounded-xl flex-1 bg-primary text-white font-bold"
                   >
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                    {isSaving ? t('common:saving') || 'جاري الحفظ...' : t('common:save') || 'حفظ التغييرات'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -245,14 +270,19 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Stats Column */}
         <div className="md:col-span-1 space-y-6">
-          <Card className="p-6 rounded-2xl bg-card border-border shadow-sm flex flex-col items-center text-center">
+          <Card 
+            className="p-6 rounded-2xl bg-card border-border shadow-sm flex flex-col items-center text-center cursor-pointer hover:border-primary/20 transition-colors"
+            onClick={fetchReviews}
+          >
             <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center mb-4">
               <Star className="h-7 w-7 text-orange-400 fill-orange-400" />
             </div>
             <span className="text-3xl font-black text-foreground">
               {profileUser.ratingCount ? (profileUser.ratingSum / profileUser.ratingCount).toFixed(1) : '0.0'}
             </span>
-            <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider mt-1">{profileUser.ratingCount || 0} تقييم</span>
+            <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider mt-1">
+              {profileUser.ratingCount || 0} {t('common:ratings') || 'تقييم'}
+            </span>
           </Card>
 
           <Card className="p-6 rounded-2xl bg-card border-border shadow-sm flex flex-col items-center text-center">
@@ -270,7 +300,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 <History className="h-4 w-4" />
-                سجل النشاط
+                {t('common:activity_history') || 'سجل النشاط'}
               </h3>
             </div>
             
@@ -281,7 +311,7 @@ export default function ProfilePage() {
                 onClick={() => setActiveTab('services')}
                 className={`rounded-lg px-4 font-bold ${activeTab === 'services' ? 'bg-card shadow-sm' : ''}`}
               >
-                الخدمات
+                {t('common:browse_services') || 'الخدمات'}
               </Button>
               {isOwnProfile && (
                 <Button 
@@ -290,7 +320,7 @@ export default function ProfilePage() {
                   onClick={() => setActiveTab('transactions')}
                   className={`rounded-lg px-4 font-bold ${activeTab === 'transactions' ? 'bg-card shadow-sm' : ''}`}
                 >
-                  العمليات المادية
+                  {t('common:transactions') || 'العمليات المادية'}
                 </Button>
               )}
             </div>
@@ -307,12 +337,12 @@ export default function ProfilePage() {
                   className="space-y-3"
                 >
                   {loadingServices ? (
-                    <div className="p-8 text-center text-muted-foreground font-bold">جاري تحميل الخدمات...</div>
+                    <div className="p-8 text-center text-muted-foreground font-bold">{t('common:loading_services') || 'جاري تحميل الخدمات...'}</div>
                   ) : userServices.length === 0 ? (
                     <div className="p-12 text-center bg-card border border-dashed border-border rounded-2xl flex flex-col items-center gap-3">
                       <Briefcase className="h-10 w-10 text-muted-foreground/30" />
-                      <p className="text-muted-foreground font-bold">لا يوجد سجل خدمات حتى الآن</p>
-                      {isOwnProfile && <Button variant="outline" size="sm" onClick={() => navigate(`/${lng}/post`)} className="rounded-xl">طلب مساعدة الآن</Button>}
+                      <p className="text-muted-foreground font-bold">{t('common:no_services_yet') || 'لا يوجد سجل خدمات حتى الآن'}</p>
+                      {isOwnProfile && <Button variant="outline" size="sm" onClick={() => navigate(`/${lng}/post`)} className="rounded-xl">{t('common:request_help_now') || 'طلب مساعدة الآن'}</Button>}
                     </div>
                   ) : (
                     userServices.map((service, idx) => (
@@ -336,10 +366,10 @@ export default function ProfilePage() {
                                 service.status === 'active' ? 'bg-blue-100 text-blue-700' : 
                                 'bg-orange-100 text-orange-700'
                               }`}>
-                                {t(`common:status_${service.status}`)}
+                                {t(`services:status_${service.status}`)}
                               </Badge>
                               <span className="text-[10px] text-muted-foreground font-medium">
-                                {service.requesterId === profileUser._id ? 'طلبته' : 'قدمته'}
+                                {service.requesterId === profileUser._id ? (t('common:requested') || 'طلبته') : (t('common:provided') || 'قدمته')}
                               </span>
                             </div>
                           </div>
@@ -394,14 +424,14 @@ export default function ProfilePage() {
       {/* Settings/Account Actions Section */}
       {isOwnProfile && (
         <section className="space-y-4">
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest px-1">إعدادات الحساب</h3>
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest px-1">{t('common:account_settings') || 'إعدادات الحساب'}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Button variant="outline" className="h-16 justify-between px-6 bg-card border-border rounded-xl hover:bg-muted group transition-all">
               <div className="flex items-center gap-4">
                 <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Bell className="h-5 w-5" />
                 </div>
-                <span className="font-bold text-foreground">تنبيهات النظام</span>
+                <span className="font-bold text-foreground">{t('common:system_notifications') || 'تنبيهات النظام'}</span>
               </div>
               <div className="h-1.5 w-1.5 rounded-full bg-red-500 ring-4 ring-red-500/20" />
             </Button>
@@ -411,7 +441,7 @@ export default function ProfilePage() {
                 <div className="h-8 w-8 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Shield className="h-5 w-5" />
                 </div>
-                <span className="font-bold text-foreground">الأمان والخصوصية</span>
+                <span className="font-bold text-foreground">{t('common:security_privacy') || 'الأمان والخصوصية'}</span>
               </div>
               {lng === 'ar' ? <ChevronLeft className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
             </Button>
@@ -425,13 +455,75 @@ export default function ProfilePage() {
                 <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <LogOut className="h-5 w-5" />
                 </div>
-                <span className="font-bold">تسجيل الخروج من الحساب</span>
+                <span className="font-bold">{t('common:logout') || 'تسجيل الخروج من الحساب'}</span>
               </div>
               <span className="text-[10px] uppercase font-black opacity-50 tracking-widest">Logout</span>
             </Button>
           </div>
         </section>
       )}
+
+      {/* Reviews Dialog */}
+      <Dialog open={showReviews} onOpenChange={setShowReviews}>
+        <DialogContent className="rounded-2xl max-w-md border-border p-8 overflow-y-auto max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-foreground flex items-center gap-2">
+              <Star className="h-5 w-5 text-orange-400 fill-orange-400" />
+              {t('common:user_reviews') || 'تقييمات المستخدمين'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {loadingReviews ? (
+              <div className="p-8 text-center text-muted-foreground font-bold">{t('common:loading_reviews') || 'جاري تحميل التقييمات...'}</div>
+            ) : reviews.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground font-medium">{t('common:no_reviews_yet') || 'لا توجد تقييمات لهذا المستخدم بعد'}</div>
+            ) : (
+              reviews.map((rev) => (
+                <div key={rev.id} className="p-4 bg-muted/30 rounded-xl border border-border/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer group/user"
+                      onClick={() => {
+                        setShowReviews(false);
+                        navigate(`/${lng}/profile/${rev.fromId}`);
+                      }}
+                    >
+                      {rev.fromPhotoUrl ? (
+                        <img src={rev.fromPhotoUrl} alt={rev.fromName} className="h-8 w-8 rounded-full object-cover border border-border" />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary border border-primary/20">
+                          {rev.fromName?.[0] || 'ي'}
+                        </div>
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-foreground group-hover/user:text-primary transition-colors">{rev.fromName || (t('common:unknown_user') || 'مستخدم')}</span>
+                        <span className="text-[9px] text-muted-foreground">
+                          {rev.createdAt?.toDate?.()?.toLocaleDateString() || ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className={`h-2.5 w-2.5 ${s <= rev.rating ? 'fill-orange-400 text-orange-400' : 'text-muted-foreground/30'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  {rev.comment && (
+                    <div className="relative">
+                      <p className="text-sm text-foreground/80 leading-relaxed italic pr-4">
+                        {rev.comment}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" className="rounded-xl w-full font-bold">{t('common:close') || 'إغلاق'}</Button>} />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

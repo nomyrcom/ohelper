@@ -13,7 +13,7 @@ import { ChevronRight, ArrowLeft, Coins, Send, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { motion } from 'motion/react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, runTransaction, doc, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useState } from 'react';
 
@@ -50,20 +50,44 @@ export default function PostPage() {
 
     try {
       setIsSubmitting(true);
-      await addDoc(collection(db, 'services'), {
-        ...data,
-        requesterId: user._id,
-        requesterName: user.name || 'مستخدم',
-        status: 'open',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      
+      await runTransaction(db, async (transaction) => {
+        // 1. Get user doc to verify points
+        const userRef = doc(db, 'users', user._id);
+        const userDoc = await transaction.get(userRef);
+        
+        if (!userDoc.exists()) {
+          throw new Error('المستخدم غير موجود');
+        }
+
+        const currentPoints = userDoc.data()?.points || 0;
+        if (currentPoints < data.points) {
+          throw new Error('رصيدك من النقاط غير كافٍ');
+        }
+
+        // 2. Create service doc
+        const servicesCol = collection(db, 'services');
+        const serviceRef = doc(servicesCol);
+        transaction.set(serviceRef, {
+          ...data,
+          requesterId: user._id,
+          requesterName: user.name || 'مستخدم',
+          status: 'open',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // 3. Deduct points
+        transaction.update(userRef, {
+          points: increment(-data.points)
+        });
       });
       
-      toast.success('تم نشر الطلب بنجاح!');
+      toast.success('تم نشر الطلب بنجاح وخصم النقاط من رصيدك');
       navigate(`/${lng}/`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error('حدث خطأ أثناء نشر الطلب');
+      toast.error(error.message || 'حدث خطأ أثناء نشر الطلب');
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +199,7 @@ export default function PostPage() {
             </div>
             <div className="flex items-start gap-2 mt-2 opacity-70">
               <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-              <p className="text-[10px] text-muted-foreground leading-tight">سيتم خصم هذه النقاط من رصيدك بمجرد قبول الطلب وتأكيد اكتمال الخدمة.</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">سيتم خصم هذه النقاط من رصيدك فور نشر الطلب لضمان الجدية، ويتم تحويلها للمزود عند اكتمال الخدمة.</p>
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, runTransaction, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -98,6 +98,34 @@ export default function ServiceDetailsPage() {
     } catch (error) {
       console.error(error);
       toast.error('خطأ في قبول الطلب');
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
+  const handleCancelService = async () => {
+    if (!currentUser || !service || service.status !== 'open') return;
+
+    try {
+      setIsAccepting(true); // Re-using loading state
+      await runTransaction(db, async (transaction) => {
+        const serviceRef = doc(db, 'services', service.id);
+        const userRef = doc(db, 'users', currentUser._id);
+        
+        // 1. Delete service
+        transaction.delete(serviceRef);
+
+        // 2. Refund points
+        transaction.update(userRef, {
+          points: increment(service.points)
+        });
+      });
+
+      toast.success('تم إلغاء الطلب واسترجاع النقاط بنجاح');
+      navigate(`/${lng}/`);
+    } catch (error) {
+      console.error(error);
+      toast.error('خطأ في إلغاء الطلب');
     } finally {
       setIsAccepting(false);
     }
@@ -212,14 +240,42 @@ export default function ServiceDetailsPage() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur border-t border-border md:relative md:bg-transparent md:border-0 md:p-0">
         <div className="max-w-3xl mx-auto">
           {canAccept ? (
-            <Button 
-              onClick={handleAcceptService}
-              disabled={isAccepting}
-              className="w-full h-14 bg-primary text-white rounded-2xl text-lg font-black shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
-            >
-              <MessageSquare className="h-5 w-5 ml-2" />
-              {isAccepting ? 'جاري القبول...' : 'قبول الطلب والبدء'}
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => navigate(`/${lng}/chat/${serviceId}`)}
+                className="h-14 border-primary text-primary rounded-2xl text-lg font-black hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="h-5 w-5" />
+                دردشة
+              </Button>
+              <Button 
+                onClick={handleAcceptService}
+                disabled={isAccepting}
+                className="h-14 bg-primary text-white rounded-2xl text-lg font-black shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
+              >
+                {isAccepting ? 'جاري القبول...' : 'قبول الطلب'}
+              </Button>
+            </div>
+          ) : isRequester && service.status === 'open' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => navigate(`/${lng}/chat/${serviceId}`)}
+                className="h-14 border-blue-600 text-blue-600 rounded-2xl font-black flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="h-5 w-5" />
+                فتح المحادثة
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleCancelService}
+                disabled={isAccepting}
+                className="h-14 rounded-2xl font-black"
+              >
+                {isAccepting ? 'جاري الإلغاء...' : 'إلغاء الطلب'}
+              </Button>
+            </div>
           ) : isParty ? (
             <Button 
               onClick={() => navigate(`/${lng}/chat/${serviceId}`)}
