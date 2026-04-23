@@ -468,7 +468,10 @@ export default function ProfilePage() {
             <Button 
               variant="outline" 
               className="md:col-span-2 h-16 justify-between px-6 bg-red-50/10 border-red-100 rounded-xl hover:bg-red-50 text-red-600 group transition-all"
-              onClick={logout}
+              onClick={async () => {
+                await logout();
+                navigate(`/${lng}/`);
+              }}
             >
               <div className="flex items-center gap-4">
                 <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center group-hover:scale-110 transition-transform">

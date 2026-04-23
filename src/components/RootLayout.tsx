@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useNotifications } from '@/hooks/use-notifications';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageToggle } from './LanguageToggle';
+import { Logo } from './Logo';
 
 export default function RootLayout() {
   const { lng } = useParams();
@@ -42,15 +43,26 @@ export default function RootLayout() {
     { icon: UserIcon, label: t('common:profile'), path: `/${lng}/profile` },
   ];
 
+  const isLandingPage = !user && (location.pathname === `/${lng}/` || location.pathname === `/${lng}`);
+
+  if (isLandingPage) {
+    return (
+      <div className="min-h-screen bg-white w-full">
+        <Toaster position="top-center" />
+        <Outlet />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans flex text-foreground">
       <Toaster position="top-center" />
       
       {/* Sidebar - Desktop Only */}
       <aside className="hidden md:flex w-64 bg-card border-l border-border flex-col p-6 shadow-sm shrink-0">
-        <div className="flex items-center gap-3 mb-10">
-          <img src="/512.png" alt="Logo" className="w-10 h-10 rounded-xl object-contain shadow-sm" />
-          <h1 className="text-2xl font-bold text-foreground">{t('common:app_name')}</h1>
+        <div className="flex flex-col items-center gap-3 mb-10">
+          <Logo size="lg" className="shadow-md" />
+          <h1 className="text-2x font-black text-foreground text-center tracking-tight">{t('common:app_name')}</h1>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -78,7 +90,10 @@ export default function RootLayout() {
           })}
           
           <button
-            onClick={() => logout()}
+            onClick={async () => {
+              await logout();
+              navigate(`/${lng}/`);
+            }}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium text-red-500 hover:bg-red-50 transition-colors mt-4"
           >
             <LogOut className="h-5 w-5" />

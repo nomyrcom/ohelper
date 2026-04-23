@@ -11,12 +11,17 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Service, Category, City } from '@/types';
+import LandingPage from './LandingPage';
+import { Logo } from '@/components/Logo';
 
 export default function HomePage() {
   const { t } = useTranslation();
   const { lng } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  if (!user) return <LandingPage />;
+
   const { unreadCount } = useNotifications();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +87,7 @@ export default function HomePage() {
           <Search className="h-6 w-6" />
         </button>
         <div className="flex flex-col items-center">
-            <img src="/512.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain shadow-sm" />
+            <Logo size="md" />
             <span className="text-[10px] font-bold text-primary mt-0.5">{t('common:app_name')}</span>
         </div>
         <div className="flex items-center space-x-2 rtl:space-x-reverse">
