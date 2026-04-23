@@ -11,8 +11,9 @@ import { motion } from 'motion/react';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
-import { Service } from '@/types';
+import { Service, Category, City } from '@/types';
 import { toast } from 'sonner';
+import { getDocs } from 'firebase/firestore';
 
 export default function ServicesPage() {
   const { t } = useTranslation();
@@ -22,8 +23,24 @@ export default function ServicesPage() {
   const [filter, setFilter] = useState('all');
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
 
   useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const [catSnap, citySnap] = await Promise.all([
+          getDocs(query(collection(db, 'categories'), orderBy('nameAr', 'asc'))),
+          getDocs(query(collection(db, 'cities'), orderBy('nameAr', 'asc')))
+        ]);
+        setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+        setCities(citySnap.docs.map(d => ({ id: d.id, ...d.data() } as City)));
+      } catch (error) {
+        console.error("Error fetching metadata:", error);
+      }
+    };
+    fetchMeta();
+
     // Open services are public, but we watch user for re-renders/auth state
     const q = query(
       collection(db, 'services'),
@@ -46,14 +63,17 @@ export default function ServicesPage() {
     navigate(`/${lng}/services/${service.id}`);
   };
 
-  const categories = [
-    { id: 'all', label: 'الكل' },
-    { id: 'education', label: 'تعليم' },
-    { id: 'maintenance', label: 'صيانة' },
-    { id: 'tech', label: 'تقنية' },
-    { id: 'design', label: 'تصميم' },
-    { id: 'transport', label: 'نقل' },
-  ];
+  const getCategoryLabel = (id: string) => {
+    const cat = categories.find(c => c.id === id);
+    if (!cat) return t(`services:${id}`);
+    return lng === 'ar' ? cat.nameAr : cat.nameEn;
+  };
+
+  const getCityLabel = (id: string) => {
+    const city = cities.find(c => c.id === id);
+    if (!city) return t(`common:${id}`);
+    return lng === 'ar' ? city.nameAr : city.nameEn;
+  };
 
   const getTagColor = (category: string) => {
     switch (category) {
@@ -83,13 +103,19 @@ export default function ServicesPage() {
 
       <Tabs defaultValue="all" className="w-full" onValueChange={setFilter}>
         <TabsList className="bg-transparent space-x-2 rtl:space-x-reverse overflow-x-auto no-scrollbar justify-start h-auto p-0 pb-1">
+          <TabsTrigger 
+            value="all"
+            className="rounded-full px-6 py-2 border border-border data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary transition-all text-xs font-medium"
+          >
+            {t('services:all') || 'الكل'}
+          </TabsTrigger>
           {categories.map(cat => (
             <TabsTrigger 
               key={cat.id} 
               value={cat.id}
               className="rounded-full px-6 py-2 border border-border data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary transition-all text-xs font-medium"
             >
-              {cat.label}
+              {lng === 'ar' ? cat.nameAr : cat.nameEn}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -109,7 +135,7 @@ export default function ServicesPage() {
             >
               <div className="flex justify-between items-start mb-4">
                 <Badge variant="secondary" className={`${getTagColor(service.category)} border-0 rounded-lg px-2 py-1 text-[10px] font-black uppercase`}>
-                  {service.category}
+                  {getCategoryLabel(service.category)}
                 </Badge>
                 <div className="flex flex-col items-end">
                    <span className="text-primary font-bold text-lg">+{service.points}</span>
@@ -121,7 +147,7 @@ export default function ServicesPage() {
               
               <div className="flex items-center text-muted-foreground text-xs mb-6 font-medium">
                 <MapPin className="h-3.5 w-3.5 ml-1 rtl:mr-1 opacity-70" />
-                <span>{service.city} • {service.createdAt?.toDate()?.toLocaleDateString() || service.createdAt || 'الآن'}</span>
+                <span>{getCityLabel(service.city)} • {service.createdAt?.toDate?.()?.toLocaleDateString() || t('common:now')}</span>
               </div>
 
               <div className="mt-auto pt-4 border-t border-border flex items-center justify-between">

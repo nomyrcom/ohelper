@@ -162,7 +162,10 @@ export default function PostPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-bold text-foreground px-1">التصنيف</Label>
-              <Select onValueChange={(v: string) => form.setValue('category', v)}>
+              <Select 
+                value={form.watch('category')}
+                onValueChange={(v: string) => form.setValue('category', v, { shouldValidate: true })}
+              >
                 <SelectTrigger className="rounded-xl border-border h-12 bg-background">
                   <SelectValue placeholder="اختر التصنيف..." />
                 </SelectTrigger>
@@ -174,10 +177,14 @@ export default function PostPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {form.formState.errors.category && <p className="text-red-500 text-[10px] font-bold px-1">{form.formState.errors.category.message}</p>}
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-bold text-foreground px-1">المدينة</Label>
-              <Select onValueChange={(v: string) => form.setValue('city', v)}>
+              <Select 
+                value={form.watch('city')}
+                onValueChange={(v: string) => form.setValue('city', v, { shouldValidate: true })}
+              >
                 <SelectTrigger className="rounded-xl border-border h-12 bg-background">
                   <SelectValue placeholder="اختر المدينة..." />
                 </SelectTrigger>
@@ -189,6 +196,7 @@ export default function PostPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {form.formState.errors.city && <p className="text-red-500 text-[10px] font-bold px-1">{form.formState.errors.city.message}</p>}
             </div>
           </div>
 

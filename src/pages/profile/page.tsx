@@ -215,12 +215,12 @@ export default function ProfilePage() {
 
           {isOwnProfile && (
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
-              <DialogTrigger asChild>
+              <DialogTrigger render={
                 <Button variant="outline" className="rounded-full px-6 h-10 gap-2 border-border shadow-sm hover:bg-muted shrink-0">
                   <Edit2 className="h-4 w-4" />
                   <span className="text-sm font-bold">{t('common:edit_data') || 'تعديل البيانات'}</span>
                 </Button>
-              </DialogTrigger>
+              } />
               <DialogContent className="rounded-2xl max-w-md border-border p-8">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-black text-foreground">{t('common:edit_profile') || 'تعديل ملفك الشخصي'}</DialogTitle>
@@ -266,8 +266,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0">
-                  <DialogClose asChild>
-                    <Button variant="ghost" className="rounded-xl flex-1 font-bold">{t('common:cancel') || 'إلغاء'}</Button>
+                  <DialogClose render={<Button variant="ghost" className="rounded-xl flex-1 font-bold" />}>
+                    {t('common:cancel') || 'إلغاء'}
                   </DialogClose>
                   <Button 
                     onClick={handleSaveProfile} 
@@ -539,8 +539,8 @@ export default function ProfilePage() {
             )}
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" className="rounded-xl w-full font-bold">{t('common:close') || 'إغلاق'}</Button>
+            <DialogClose render={<Button variant="outline" className="rounded-xl w-full font-bold" />}>
+              {t('common:close') || 'إغلاق'}
             </DialogClose>
           </DialogFooter>
         </DialogContent>

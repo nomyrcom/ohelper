@@ -13,12 +13,8 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
-    function isAdminEmail() {
-      return isSignedIn() && request.auth.token.email in ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'];
-    }
-
     function isAdmin() {
-      return isAdminEmail() || (
+      return (isSignedIn() && (request.auth.token.email == 'dharycrypto@gmail.com' || request.auth.token.email == 'nomyrcom@gmail.com')) || (
         isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true

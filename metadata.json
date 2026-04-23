@@ -1,6 +1,6 @@
 {
-  "name": "Remix: Ya Mo\u0027een (يا معين)",
-  "description": "A service exchange platform for Yemeni users using a points-based system for a trusted community.",
+  "name": "يا معين (Ya Mo'een)",
+  "description": "منصة لتبادل الخدمات بين المستخدمين في اليمن، حيث يتم استخدام نظام النقاط بدلاً من الدفع النقدي. يهدف التطبيق إلى توفير سوق رقمي يتيح للمستخدمين طلب الخدمات وتقديمها، مع بناء مجتمع يعتمد على الثقة والتقييمات المتبادلة.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

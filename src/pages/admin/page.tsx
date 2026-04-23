@@ -19,13 +19,14 @@ import {
   Users, ClipboardList, CheckCircle, Ban, TrendingUp, 
   Search, Shield, Trash2, Plus, Minus, UserCheck, 
   UserX, AlertCircle, RefreshCcw, Coins, Star, ChevronRight,
-  User as UserIcon, Mail, MapPin, Calendar, LayoutGrid, Map as MapIcon
+  User as UserIcon, Mail, MapPin, Calendar, LayoutGrid, Map as MapIcon,
+  RotateCcw, AlertTriangle, Loader2
 } from 'lucide-react';
 import { User, Service, Category, City } from '@/types';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { addDoc } from 'firebase/firestore';
+import { addDoc, getDoc } from 'firebase/firestore';
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -58,6 +59,12 @@ export default function AdminPage() {
   const [editItem, setEditItem] = useState<any>(null);
   const [nameAr, setNameAr] = useState('');
   const [nameEn, setNameEn] = useState('');
+
+  // Reset Site State
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetUsers, setResetUsers] = useState(false);
+  const [resetServices, setResetServices] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
 
   const { user: currentUser } = useAuth();
 
@@ -175,6 +182,51 @@ export default function AdminPage() {
     }
   };
 
+  const handleResetSite = async () => {
+    if (!resetUsers && !resetServices) {
+      toast.error('يرجى اختيار نوع واحد على الأقل من البيانات لحذفه');
+      return;
+    }
+
+    if (!confirm('تحذير نهائي: هذا الإجراء سيقوم بحذف جميع البيانات المختارة نهائياً ولا يمكن التراجع عنه. هل أنت متأكد؟')) return;
+
+    setIsResetting(true);
+    try {
+      const batch = writeBatch(db);
+      
+      if (resetServices) {
+        const servicesSnap = await getDocs(collection(db, 'services'));
+        servicesSnap.forEach(s => batch.delete(s.ref));
+        
+        // Also delete messages
+        const messagesSnap = await getDocs(collection(db, 'service_messages')); // Assuming standard collection name
+        messagesSnap.forEach(m => batch.delete(m.ref));
+        
+        // Notifications related to services could go here
+      }
+
+      if (resetUsers) {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.forEach(u => {
+          // Important: Don't delete the current admin user!
+          if (u.id !== currentUser?._id) {
+            batch.delete(u.ref);
+          }
+        });
+      }
+
+      await batch.commit();
+      toast.success('تمت إعادة تعيين البيانات بنجاح');
+      setIsResetDialogOpen(false);
+      fetchStats();
+    } catch (error) {
+      console.error("Reset site error:", error);
+      toast.error('فشل في إعادة تعيين الموقع');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const handleUpdatePoints = async () => {
     if (!selectedUser || !pointAmount) return;
     const amount = parseInt(pointAmount);
@@ -257,6 +309,14 @@ export default function AdminPage() {
           </h1>
           <p className="text-muted-foreground mt-1">إدارة المستخدمين والخدمات المنشورة في المنصة</p>
         </div>
+        <Button 
+          variant="outline" 
+          className="gap-2 border-red-100 text-red-600 hover:bg-red-50 font-bold rounded-xl"
+          onClick={() => setIsResetDialogOpen(true)}
+        >
+          <RotateCcw className="h-4 w-4" />
+          إعادة تعيين الموقع
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -558,8 +618,8 @@ export default function AdminPage() {
             >
               تأكيد التعديل
             </Button>
-            <DialogClose asChild>
-              <Button variant="ghost" className="w-full font-bold">إلغاء</Button>
+            <DialogClose render={<Button variant="ghost" className="w-full font-bold" />}>
+              إلغاء
             </DialogClose>
           </DialogFooter>
         </DialogContent>
@@ -600,6 +660,74 @@ export default function AdminPage() {
             >
               {t('save')}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Site Dialog */}
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent className="rounded-2xl max-w-sm border-border">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+            </div>
+            <DialogTitle className="text-center font-black">إعادة تعيين الموقع</DialogTitle>
+            <DialogDescription className="text-center text-balance">
+              سيتم تفريغ البيانات المختارة وإرجاع قاعدة البيانات للحالة الافتراضية. هذا الإجراء لا يمكن التراجع عنه.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6 space-y-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                   onClick={() => setResetServices(!resetServices)}>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+                    <ClipboardList className="h-4 w-4" />
+                  </div>
+                  <span className="font-bold text-sm">المشاريع والرسائل</span>
+                </div>
+                <div className={`h-5 w-5 rounded border ${resetServices ? 'bg-primary border-primary' : 'border-muted-foreground'} flex items-center justify-center`}>
+                  {resetServices && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                   onClick={() => setResetUsers(!resetUsers)}>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-sm block">المستخدمين</span>
+                    <span className="text-[10px] text-muted-foreground block text-balance">سيتم استثناء حسابك الحالي للحفاظ على صلاحية الدخول</span>
+                  </div>
+                </div>
+                <div className={`h-5 w-5 rounded border ${resetUsers ? 'bg-primary border-primary' : 'border-muted-foreground'} flex items-center justify-center`}>
+                  {resetUsers && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button 
+              onClick={handleResetSite}
+              disabled={isResetting || (!resetUsers && !resetServices)}
+              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold h-12"
+            >
+              {isResetting ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري المسح...
+                </>
+              ) : 'تأكيد الحذف النهائي'}
+            </Button>
+            <DialogClose render={<Button variant="ghost" disabled={isResetting} className="w-full font-bold" />}>
+              إلغاء
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
