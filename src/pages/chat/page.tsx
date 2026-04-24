@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Clock, CheckCircle2, ChevronRight, User as UserIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Service } from '@/types';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 export default function ChatListPage() {
   const { t } = useTranslation();
@@ -76,9 +77,7 @@ export default function ChatListPage() {
     }
   };
 
-  if (loading) {
-    return <div className="p-8 text-center font-bold">جاري تحميل المحادثات...</div>;
-  }
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-4xl mx-auto min-h-screen">

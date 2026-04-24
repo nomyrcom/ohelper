@@ -10,6 +10,7 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageToggle } from './LanguageToggle';
 import { Logo } from './Logo';
+import { LoadingScreen } from './LoadingScreen';
 
 export default function RootLayout() {
   const { lng } = useParams();
@@ -19,15 +20,24 @@ export default function RootLayout() {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
+    // Show loading screen on route change for 2 seconds
+    setIsNavigating(true);
+    const timer = setTimeout(() => {
+      setIsNavigating(false);
+    }, 1500); // 1.5s + 0.5s fade out = 2s
+
     if (lng && i18n.language !== lng) {
       i18n.changeLanguage(lng);
     }
     // Set direction
     document.dir = lng === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lng || 'ar';
-  }, [lng, i18n]);
+
+    return () => clearTimeout(timer);
+  }, [lng, i18n, location.pathname]);
 
   const navItems = [
     { icon: Home, label: t('common:home'), path: `/${lng}/` },
@@ -212,7 +222,10 @@ export default function RootLayout() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto w-full">
+        <div className="flex-1 overflow-y-auto w-full relative">
+          <AnimatePresence mode="wait">
+            {isNavigating && <LoadingScreen fullScreen={true} />}
+          </AnimatePresence>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

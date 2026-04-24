@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, runTransaction, increment, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, runTransaction, increment, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ import {
   AlertCircle, Share2
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { Service, User, Category, City } from '@/types';
 import { toast } from 'sonner';
 
@@ -158,9 +159,7 @@ export default function ServiceDetailsPage() {
     return lng === 'ar' ? city.nameAr : city.nameEn;
   };
 
-  if (loading) {
-    return <div className="p-8 text-center font-bold">جاري تحميل التفاصيل...</div>;
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!service) return null;
 

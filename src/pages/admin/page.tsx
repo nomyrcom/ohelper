@@ -26,6 +26,7 @@ import { User, Service, Category, City } from '@/types';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { motion, AnimatePresence } from 'motion/react';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { addDoc, getDoc } from 'firebase/firestore';
 
 export default function AdminPage() {
@@ -144,6 +145,8 @@ export default function AdminPage() {
       unsubCities();
     };
   }, [currentUser?.isAdmin]);
+
+  if (loading) return <LoadingScreen />;
 
   const handleSaveManageItem = async () => {
     if (!nameAr || !nameEn) {

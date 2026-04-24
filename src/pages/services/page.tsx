@@ -12,6 +12,7 @@ import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTi
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import { Service, Category, City } from '@/types';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { toast } from 'sonner';
 import { getDocs } from 'firebase/firestore';
 
@@ -58,6 +59,8 @@ export default function ServicesPage() {
 
     return () => unsubscribe();
   }, [user]);
+
+  if (loading) return <LoadingScreen />;
 
   const handleHelpRequest = (service: Service) => {
     navigate(`/${lng}/services/${service.id}`);

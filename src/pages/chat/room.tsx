@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Service, Message, User } from '@/types';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { toast } from 'sonner';
 
 export default function ChatRoomPage() {
@@ -310,9 +311,7 @@ export default function ChatRoomPage() {
 
   const currentStepIndex = steps.findIndex(s => s.id === service?.status);
 
-  if (loading || !service) {
-    return <div className="p-8 text-center font-bold">جاري تحميل المحادثة...</div>;
-  }
+  if (loading || !service) return <LoadingScreen />;
 
   const isRequester = service.requesterId === user?._id;
   const userConfirmed = isRequester ? service.requesterConfirmed : service.providerConfirmed;

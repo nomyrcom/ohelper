@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase';
 import { Service, Category, City } from '@/types';
 import LandingPage from './LandingPage';
 import { Logo } from '@/components/Logo';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -54,6 +55,8 @@ export default function HomePage() {
 
     return () => unsubscribe();
   }, [user]);
+
+  if (loading) return <LoadingScreen />;
 
   const getCategoryLabel = (id: string) => {
     const cat = categories.find(c => c.id === id);
