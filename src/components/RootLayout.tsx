@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home, ClipboardList, Bell, User as UserIcon, Plus, Search, MessageSquare, Trophy, Wallet, LogOut, Shield } from 'lucide-react';
+import { Home, ClipboardList, Bell, User as UserIcon, Plus, Search, MessageSquare, Trophy, Wallet, LogOut, Shield, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { useAuth } from '@/hooks/use-auth';
@@ -18,6 +18,7 @@ export default function RootLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (lng && i18n.language !== lng) {
@@ -64,13 +65,26 @@ export default function RootLayout() {
       <Toaster position="top-center" />
       
       {/* Sidebar - Desktop Only */}
-      <aside className="hidden md:flex w-64 bg-card border-l border-border flex-col p-6 shadow-sm shrink-0">
-        <div className="flex flex-col items-center gap-3 mb-10">
-          <Logo size="lg" className="shadow-md" />
-          <h1 className="text-2x font-black text-foreground text-center tracking-tight">{t('common:app_name')}</h1>
+      <aside className={`hidden md:flex bg-card border-l border-border flex-col shadow-sm shrink-0 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-end'} p-4`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:flex hidden w-9 h-9 rounded-xl hover:bg-muted"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
         </div>
 
-        <nav className="flex-1 space-y-1">
+        <div className={`flex flex-col items-center gap-3 mb-10 px-4`}>
+          <Logo size={sidebarCollapsed ? "sm" : "lg"} className="shadow-md" />
+          {!sidebarCollapsed && (
+            <h1 className="text-2x font-black text-foreground text-center tracking-tight">{t('common:app_name')}</h1>
+          )}
+        </div>
+
+        <nav className="flex-1 space-y-1 px-4 overflow-x-hidden">
           {navItems.map((item, index) => {
             const isActive = location.pathname === item.path || (item.path === `/${lng}/` && location.pathname === `/${lng}`);
             return (
@@ -79,17 +93,25 @@ export default function RootLayout() {
                 onClick={() => navigate(item.path)}
                 className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium transition-colors ${
                   isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
+                title={sidebarCollapsed ? item.label : ''}
               >
-                <item.icon className="h-5 w-5" />
-                <div className="flex-1 flex items-center justify-between">
-                  <span>{item.label}</span>
-                  {item.icon === Bell && unreadCount > 0 && (
-                    <span className="bg-primary text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center animate-bounce-slow">
-                      {unreadCount}
-                    </span>
-                  )}
-                </div>
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!sidebarCollapsed && (
+                  <div className="flex-1 flex items-center justify-between">
+                    <span>{item.label}</span>
+                    {item.icon === Bell && unreadCount > 0 && (
+                      <span className="bg-primary text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center animate-bounce-slow">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {sidebarCollapsed && item.icon === Bell && unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-primary text-white text-[8px] font-black h-4 w-4 rounded-full flex items-center justify-center border-2 border-background">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -99,20 +121,27 @@ export default function RootLayout() {
               await logout();
               navigate(`/${lng}/`);
             }}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium text-red-500 hover:bg-red-50 transition-colors mt-4"
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium text-red-500 hover:bg-red-50 transition-colors mt-4 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
+            title={sidebarCollapsed ? t('common:sign_out') : ''}
           >
-            <LogOut className="h-5 w-5" />
-            <span>{t('common:sign_out')}</span>
+            <LogOut className="h-5 w-5 shrink-0" />
+            {!sidebarCollapsed && <span>{t('common:sign_out')}</span>}
           </button>
         </nav>
 
-        <div className="mt-auto p-4 bg-muted rounded-2xl">
-          <p className="text-xs text-muted-foreground mb-1">{t('common:current_balance')}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-primary">{user?.points || 0}</span>
-            <span className="text-xs font-medium text-muted-foreground uppercase">{t('common:points')}</span>
+        {!sidebarCollapsed ? (
+          <div className="mt-auto p-4 bg-muted rounded-2xl">
+            <p className="text-xs text-muted-foreground mb-1">{t('common:current_balance')}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-primary">{user?.points || 0}</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase">{t('common:points')}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-auto flex flex-col items-center gap-1 p-2 bg-muted rounded-xl">
+             <span className="text-xs font-black text-primary">{user?.points || 0}</span>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}
