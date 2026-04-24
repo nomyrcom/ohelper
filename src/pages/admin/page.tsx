@@ -257,15 +257,13 @@ export default function AdminPage() {
   };
 
   const handleCancelService = async (serviceId: string) => {
-    if (!confirm('هل أنت متأكد من إلغاء هذه الخدمة؟ ستعود النقاط لصاحبها.')) return;
+    if (!confirm('هل أنت متأكد من إلغاء هذه الخدمة نهائياً؟')) return;
     try {
       await updateDoc(doc(db, 'services', serviceId), {
-        status: 'open',
-        providerId: null,
-        providerName: null,
+        status: 'cancelled',
         updatedAt: serverTimestamp()
       });
-      toast.success('تم إلغاء تنفيذ الخدمة بنجاح');
+      toast.success('تم إلغاء الخدمة بنجاح');
     } catch (error) {
       toast.error('فشل إلغاء الخدمة');
     }
@@ -334,14 +332,14 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 rounded-xl">
-          <TabsTrigger value="users" className="rounded-lg font-bold px-8">المستخدمين</TabsTrigger>
-          <TabsTrigger value="services" className="rounded-lg font-bold px-8">الخدمات</TabsTrigger>
-          <TabsTrigger value="categories" className="rounded-lg font-bold px-8">{t('categories')}</TabsTrigger>
-          <TabsTrigger value="cities" className="rounded-lg font-bold px-8">{t('governorates')}</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1.5 rounded-2xl grid grid-cols-2 h-auto md:flex md:h-11 w-full max-w-md mx-auto mb-8 shadow-sm">
+          <TabsTrigger value="users" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">المستخدمين</TabsTrigger>
+          <TabsTrigger value="services" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">الخدمات</TabsTrigger>
+          <TabsTrigger value="categories" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">{t('categories')}</TabsTrigger>
+          <TabsTrigger value="cities" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">{t('governorates')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="space-y-4">
+        <TabsContent value="users" className="space-y-4 mt-4">
           <div className="relative max-w-md">
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -353,65 +351,75 @@ export default function AdminPage() {
           </div>
 
           <div className="grid gap-4">
-            {filteredUsers.map(u => (
-              <Card key={u._id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-border shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-black">
-                    {u.name?.[0] || 'ي'}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-foreground flex items-center gap-2">
-                      {u.name}
-                      {u.isAdmin && <Badge className="bg-primary/10 text-primary border-0 text-[10px] py-0">مسؤول</Badge>}
-                    </h4>
-                    <p className="text-xs text-muted-foreground">{u.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase">النقاط</p>
-                    <p className="font-black text-primary">{u.points}</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 border-r pr-4 border-border">
-                    <Button 
-                      size="sm" variant="ghost" className="h-8 gap-2 hover:bg-emerald-50 text-emerald-600 font-bold"
-                      onClick={() => {
-                        setSelectedUser(u);
-                        setPointAmount('10');
-                        setIsPointDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                      تعديل النقاط
-                    </Button>
+            {filteredUsers.map(u => {
+              const uPublished = services.filter(s => s.requesterId === u._id).length;
+              const uExecuted = services.filter(s => s.providerId === u._id && s.status === 'completed').length;
+              
+              return (
+                <Card key={u._id} className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-border shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-black shrink-0">
+                      {u.name?.[0] || 'ي'}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-foreground flex items-center gap-2 truncate">
+                        {u.name}
+                        {u.isAdmin && <Badge className="bg-primary/10 text-primary border-0 text-[10px] py-0">مسؤول</Badge>}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                        <div className="flex gap-2 mr-2 border-r pr-2 border-border/50">
+                          <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">منشور: <span className="text-foreground">{uPublished}</span></span>
+                          <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">أنجز: <span className="text-foreground">{uExecuted}</span></span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 border-r pr-4 border-border">
-                    <Button 
-                      size="sm" variant="ghost" className="text-xs font-bold"
-                      onClick={() => handleToggleAdmin(u._id, !!u.isAdmin)}
-                    >
-                      {u.isAdmin ? <UserX className="h-4 w-4 ml-1" /> : <UserCheck className="h-4 w-4 ml-1" />}
-                      {u.isAdmin ? 'إزالة الإدارة' : 'تعيين إدارة'}
-                    </Button>
-                    <Button 
-                      size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteUser(u._id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex flex-wrap items-center gap-4 md:gap-6">
+                    <div className="text-center min-w-[40px]">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase leading-none mb-1">النقاط</p>
+                      <p className="font-black text-primary leading-none text-lg">{u.points}</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-2 border-r pr-4 border-border">
+                      <Button 
+                        size="sm" variant="ghost" className="h-8 gap-2 hover:bg-emerald-50 text-emerald-600 font-bold px-2"
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setPointAmount('10');
+                          setIsPointDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                        تعديل النقاط
+                      </Button>
+
+                      <Button 
+                        size="sm" variant="ghost" className="h-8 text-xs font-bold px-2"
+                        onClick={() => handleToggleAdmin(u._id, !!u.isAdmin)}
+                      >
+                        {u.isAdmin ? <UserX className="h-4 w-4 ml-1" /> : <UserCheck className="h-4 w-4 ml-1" />}
+                        {u.isAdmin ? 'إزالة الإدارة' : 'تعيين إدارة'}
+                      </Button>
+                      
+                      <Button 
+                        size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteUser(u._id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
 
-        <TabsContent value="services" className="space-y-4">
+        <TabsContent value="services" className="space-y-4 mt-4">
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {['all', 'open', 'active', 'confirming', 'completed'].map(status => (
+            {['all', 'open', 'active', 'confirming', 'completed', 'cancelled'].map(status => (
               <Badge 
                 key={status}
                 variant={serviceFilter === status ? 'default' : 'outline'}
@@ -421,7 +429,8 @@ export default function AdminPage() {
                 {status === 'all' ? 'الكل' : 
                  status === 'open' ? 'مفتوح' : 
                  status === 'active' ? 'نشط' : 
-                 status === 'confirming' ? 'بانتظار التأكيد' : 'مكتمل'}
+                 status === 'confirming' ? 'بانتظار التأكيد' : 
+                 status === 'completed' ? 'مكتمل' : 'ملغي'}
               </Badge>
             ))}
           </div>
@@ -444,13 +453,13 @@ export default function AdminPage() {
                   </div>
 
                   <div className="flex items-center gap-2 border-r pr-4 border-border">
-                    {s.status === 'active' && (
+                    {s.status !== 'completed' && s.status !== 'cancelled' && (
                       <Button 
-                        size="sm" variant="outline" className="text-red-500 border-red-100 hover:bg-red-50"
+                        size="sm" variant="outline" className="text-red-500 border-red-100 hover:bg-red-50 font-bold"
                         onClick={() => handleCancelService(s.id)}
                       >
                         <Ban className="h-4 w-4 ml-1" />
-                        إلغاء التنفيذ
+                        إلغاء المشروع
                       </Button>
                     )}
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
@@ -463,7 +472,7 @@ export default function AdminPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="categories" className="space-y-4">
+        <TabsContent value="categories" className="space-y-4 mt-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-lg">{t('manage_categories')}</h3>
             <Button 
@@ -517,7 +526,7 @@ export default function AdminPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="cities" className="space-y-4">
+        <TabsContent value="cities" className="space-y-4 mt-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-lg">{t('manage_cities')}</h3>
             <Button 

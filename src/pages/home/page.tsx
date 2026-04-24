@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Bell, User as UserIcon, BookOpen, Wrench, Laptop, Truck, MoreHorizontal, MapPin, Star } from 'lucide-react';
+import { Search, Bell, User as UserIcon, BookOpen, Wrench, Laptop, Truck, MoreHorizontal, MapPin, Star, ShieldCheck } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'motion/react';
@@ -83,9 +83,20 @@ export default function HomePage() {
     <div className="p-4 md:p-8 space-y-8">
       {/* Mobile Top Bar (Hidden on Desktop) */}
       <div className="flex md:hidden items-center justify-between mb-4">
-        <button className="p-2 text-muted-foreground">
-          <Search className="h-6 w-6" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button className="p-2 text-muted-foreground hover:bg-accent rounded-full transition-colors">
+            <Search className="h-6 w-6" />
+          </button>
+          {user?.isAdmin && (
+            <button 
+              onClick={() => navigate(`/${lng}/admin`)}
+              className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors"
+              title="لوحة التحكم"
+            >
+              <ShieldCheck className="h-6 w-6" />
+            </button>
+          )}
+        </div>
         <div className="flex flex-col items-center">
             <Logo size="md" />
             <span className="text-[10px] font-bold text-primary mt-0.5">{t('common:app_name')}</span>

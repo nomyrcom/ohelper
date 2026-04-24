@@ -190,9 +190,27 @@ export default function ServiceDetailsPage() {
       <Card className="p-6 md:p-8 rounded-3xl border-border bg-card shadow-sm space-y-6">
         <div className="space-y-4">
           <div className="flex justify-between items-start">
-            <Badge variant="secondary" className="bg-primary/10 text-primary border-0 rounded-lg px-3 py-1 font-bold uppercase tracking-wider text-xs">
-              {getCategoryLabel(service.category)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-0 rounded-lg px-3 py-1 font-bold uppercase tracking-wider text-xs">
+                {getCategoryLabel(service.category)}
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className={`
+                  rounded-lg px-3 py-1 font-bold text-xs border-0
+                  ${service.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 
+                    service.status === 'active' ? 'bg-blue-50 text-blue-600' : 
+                    service.status === 'completed' ? 'bg-purple-50 text-purple-600' : 
+                    service.status === 'cancelled' ? 'bg-red-50 text-red-600' : 
+                    'bg-orange-50 text-orange-600'}
+                `}
+              >
+                {service.status === 'open' ? 'مفتوح' : 
+                 service.status === 'active' ? 'قيد التنفيذ' : 
+                 service.status === 'confirming' ? 'بانتظار التأكيد' : 
+                 service.status === 'completed' ? 'مكتمل' : 'ملغي'}
+              </Badge>
+            </div>
             <div className="text-right">
               <span className="text-3xl font-black text-primary">+{service.points}</span>
               <p className="text-[10px] text-muted-foreground font-black uppercase">{t('common:points')}</p>

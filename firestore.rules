@@ -14,11 +14,8 @@ service cloud.firestore {
     function existing() { return resource.data; }
     
     function isAdmin() {
-      return (isSignedIn() && (request.auth.token.email == 'dharycrypto@gmail.com' || request.auth.token.email == 'nomyrcom@gmail.com')) || (
-        isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
-      );
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
     // --- Entity Validations ---
