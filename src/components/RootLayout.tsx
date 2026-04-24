@@ -77,7 +77,10 @@ export default function RootLayout() {
           </Button>
         </div>
 
-        <div className={`flex flex-col items-center gap-3 mb-10 px-4`}>
+        <div 
+          className={`flex flex-col items-center gap-3 mb-10 px-4 cursor-pointer hover:opacity-80 transition-opacity`}
+          onClick={() => navigate(`/${lng}/`)}
+        >
           <Logo size={sidebarCollapsed ? "sm" : "lg"} className="shadow-md" />
           {!sidebarCollapsed && (
             <h1 className="text-2x font-black text-foreground text-center tracking-tight">{t('common:app_name')}</h1>
@@ -91,7 +94,7 @@ export default function RootLayout() {
               <button
                 key={`${item.path}-${index}`}
                 onClick={() => navigate(item.path)}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium transition-colors ${
+                className={`relative flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium transition-colors ${
                   isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted'
                 } ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
                 title={sidebarCollapsed ? item.label : ''}

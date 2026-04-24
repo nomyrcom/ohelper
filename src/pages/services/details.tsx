@@ -44,32 +44,31 @@ export default function ServiceDetailsPage() {
     }
     fetchMetadata();
 
-    async function fetchDetails() {
-      if (!serviceId) return;
-      try {
-        const serviceDoc = await getDoc(doc(db, 'services', serviceId));
-        if (!serviceDoc.exists()) {
-          toast.error('الخدمة غير موجودة');
-          navigate(`/${lng}/services`);
-          return;
-        }
-        
-        const serviceData = { id: serviceDoc.id, ...serviceDoc.data() } as Service;
-        setService(serviceData);
+    if (!serviceId) return;
 
-        // Fetch requester profile for rating
-        const requesterDoc = await getDoc(doc(db, 'users', serviceData.requesterId));
-        if (requesterDoc.exists()) {
-          setRequester(requesterDoc.data() as User);
-        }
-      } catch (error) {
-        console.error(error);
-        toast.error('خطأ في تحميل البيانات');
-      } finally {
-        setLoading(false);
+    const unsubscribe = onSnapshot(doc(db, 'services', serviceId), async (docSnap) => {
+      if (!docSnap.exists()) {
+        toast.error('الخدمة غير موجودة');
+        navigate(`/${lng}/services`);
+        return;
       }
-    }
-    fetchDetails();
+      
+      const serviceData = { id: docSnap.id, ...docSnap.data() } as Service;
+      setService(serviceData);
+
+      // Fetch requester profile for rating (one-time fetch is okay here as it's static info)
+      const requesterDoc = await getDoc(doc(db, 'users', serviceData.requesterId));
+      if (requesterDoc.exists()) {
+        setRequester(requesterDoc.data() as User);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error(error);
+      toast.error('خطأ في تحميل البيانات');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [serviceId]);
 
   const handleAcceptService = async () => {

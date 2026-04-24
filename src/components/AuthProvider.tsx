@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { auth, db, handleFirestoreError } from '../lib/firebase';
 import { User } from '../types';
 
@@ -21,47 +21,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Expose auth for error handler
     (window as any).firebaseAuth = auth;
     
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let userUnsubscribe: Unsubscribe | null = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous listener if any
+      if (userUnsubscribe) {
+        userUnsubscribe();
+        userUnsubscribe = null;
+      }
+
       if (firebaseUser) {
         try {
-          // Fetch or create user profile in Firestore
           const userRef = doc(db, 'users', firebaseUser.uid);
+          
+          // Initial check to create user if doesn't exist
           const userSnap = await getDoc(userRef).catch(e => handleFirestoreError(e, 'get', `users/${firebaseUser.uid}`));
-
-          if (userSnap.exists()) {
-            const userData = { _id: userSnap.id, ...userSnap.data() } as User;
-            setUser(userData);
-          } else {
-            // New user, create profile with defaults
-            const newUser: User = {
-              _id: firebaseUser.uid,
-              tokenIdentifier: firebaseUser.uid,
-              name: firebaseUser.displayName || 'مستخدم جديد',
-              email: firebaseUser.email || '',
-              points: 100, // Starting bonus
-              ratingSum: 0,
-              ratingCount: 0,
-              city: 'sanaa',
-              isAdmin: false
-            };
-            
-            if (firebaseUser.photoURL) {
-              newUser.photoUrl = firebaseUser.photoURL;
-            }
-
-            await setDoc(userRef, newUser).catch(e => handleFirestoreError(e, 'create', `users/${firebaseUser.uid}`));
-            setUser(newUser);
+          
+          if (!userSnap.exists()) {
+             // New user, create profile with defaults
+             const newUser: User = {
+                _id: firebaseUser.uid,
+                tokenIdentifier: firebaseUser.uid,
+                name: firebaseUser.displayName || 'مستخدم جديد',
+                email: firebaseUser.email || '',
+                points: 100, // Starting bonus
+                ratingSum: 0,
+                ratingCount: 0,
+                city: 'sanaa',
+                isAdmin: false
+              };
+              
+              if (firebaseUser.photoURL) {
+                newUser.photoUrl = firebaseUser.photoURL;
+              }
+  
+              await setDoc(userRef, newUser).catch(e => handleFirestoreError(e, 'create', `users/${firebaseUser.uid}`));
           }
+
+          // Set up real-time listener
+          userUnsubscribe = onSnapshot(userRef, (doc) => {
+            if (doc.exists()) {
+              setUser({ _id: doc.id, ...doc.data() } as User);
+            } else {
+              setUser(null);
+            }
+            setLoading(false);
+          }, (error) => {
+            console.error("Firestore user listener error:", error);
+            handleFirestoreError(error, 'get', `users/${firebaseUser.uid}`);
+            setLoading(false);
+          });
+
         } catch (error) {
           console.error("Auth initialization error:", error);
+          setLoading(false);
         }
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      authUnsubscribe();
+      if (userUnsubscribe) userUnsubscribe();
+    };
   }, []);
 
   const logout = async () => {
