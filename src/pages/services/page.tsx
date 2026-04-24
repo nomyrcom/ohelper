@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Filter, MapPin, BookOpen, Wrench, Laptop, Truck, MoreHorizontal, Star, MessageSquare } from 'lucide-react';
+import { Search, Filter, MapPin, BookOpen, Wrench, Laptop, Truck, MoreHorizontal, Star, MessageSquare, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -145,9 +145,15 @@ export default function ServicesPage() {
 
               <h3 className="font-bold text-foreground text-lg mb-2 group-hover:text-primary transition-colors line-clamp-1">{service.title}</h3>
               
-              <div className="flex items-center text-muted-foreground text-xs mb-6 font-medium">
-                <MapPin className="h-3.5 w-3.5 ml-1 rtl:mr-1 opacity-70" />
-                <span>{getCityLabel(service.city)} • {service.createdAt?.toDate?.()?.toLocaleDateString() || t('common:now')}</span>
+              <div className="flex items-center text-muted-foreground text-xs mb-6 font-medium gap-3">
+                <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 rounded-md border border-border/50">
+                  <MapPin className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="font-bold text-foreground/80">{getCityLabel(service.city)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                   <Calendar className="h-3.5 w-3.5 opacity-50" />
+                   <span>{service.createdAt?.toDate?.()?.toLocaleDateString() || t('common:now')}</span>
+                </div>
               </div>
 
               <div className="mt-auto pt-4 border-t border-border flex items-center justify-between">

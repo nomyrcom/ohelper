@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, runTransaction, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, runTransaction, increment, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -13,7 +13,7 @@ import {
   AlertCircle, Share2
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Service, User } from '@/types';
+import { Service, User, Category, City } from '@/types';
 import { toast } from 'sonner';
 
 export default function ServiceDetailsPage() {
@@ -26,8 +26,24 @@ export default function ServiceDetailsPage() {
   const [requester, setRequester] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
 
   useEffect(() => {
+    async function fetchMetadata() {
+      try {
+        const [catSnap, citySnap] = await Promise.all([
+          getDocs(query(collection(db, 'categories'), orderBy('nameAr', 'asc'))),
+          getDocs(query(collection(db, 'cities'), orderBy('nameAr', 'asc')))
+        ]);
+        setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+        setCities(citySnap.docs.map(d => ({ id: d.id, ...d.data() } as City)));
+      } catch (error) {
+        console.error("Error fetching metadata:", error);
+      }
+    }
+    fetchMetadata();
+
     async function fetchDetails() {
       if (!serviceId) return;
       try {
@@ -131,6 +147,18 @@ export default function ServiceDetailsPage() {
     }
   };
 
+  const getCategoryLabel = (id: string) => {
+    const cat = categories.find(c => c.id === id);
+    if (!cat) return t(`services:${id}`);
+    return lng === 'ar' ? cat.nameAr : cat.nameEn;
+  };
+
+  const getCityLabel = (id: string) => {
+    const city = cities.find(c => c.id === id);
+    if (!city) return t(`common:${id}`);
+    return lng === 'ar' ? city.nameAr : city.nameEn;
+  };
+
   if (loading) {
     return <div className="p-8 text-center font-bold">جاري تحميل التفاصيل...</div>;
   }
@@ -163,7 +191,7 @@ export default function ServiceDetailsPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-start">
             <Badge variant="secondary" className="bg-primary/10 text-primary border-0 rounded-lg px-3 py-1 font-bold uppercase tracking-wider text-xs">
-              {service.category}
+              {getCategoryLabel(service.category)}
             </Badge>
             <div className="text-right">
               <span className="text-3xl font-black text-primary">+{service.points}</span>
@@ -174,13 +202,13 @@ export default function ServiceDetailsPage() {
           <h1 className="text-2xl md:text-3xl font-black text-foreground leading-tight">{service.title}</h1>
           
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground font-medium">
-            <div className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 text-primary/60" />
-              <span>{service.city}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-xl border border-border/50">
+              <MapPin className="h-4 w-4 text-primary" />
+              <span className="font-bold text-foreground">{getCityLabel(service.city)}</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-xl border border-border/50">
               <Calendar className="h-4 w-4 text-primary/60" />
-              <span>{service.createdAt?.toDate?.()?.toLocaleDateString() || 'اليوم'}</span>
+              <span className="font-bold text-foreground">{service.createdAt?.toDate?.()?.toLocaleDateString() || 'اليوم'}</span>
             </div>
           </div>
         </div>
@@ -237,7 +265,7 @@ export default function ServiceDetailsPage() {
       </div>
 
       {/* Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur border-t border-border md:relative md:bg-transparent md:border-0 md:p-0">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-50 md:relative md:bg-transparent md:border-0 md:p-0 md:z-10">
         <div className="max-w-3xl mx-auto">
           {canAccept ? (
             <div className="grid grid-cols-2 gap-3">

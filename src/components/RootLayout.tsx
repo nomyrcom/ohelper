@@ -44,6 +44,11 @@ export default function RootLayout() {
   ];
 
   const isLandingPage = !user && (location.pathname === `/${lng}/` || location.pathname === `/${lng}`);
+  
+  const hideMobileNav = [
+    `/${lng}/chat/`,
+    `/${lng}/services/`
+  ].some(prefix => location.pathname.includes(prefix) && location.pathname.split('/').length > 3);
 
   if (isLandingPage) {
     return (
@@ -111,7 +116,7 @@ export default function RootLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative pb-20 md:pb-0 overflow-x-hidden">
+      <main className={`flex-1 flex flex-col relative ${hideMobileNav ? 'pb-0' : 'pb-20'} md:pb-0 overflow-x-hidden`}>
         {/* Desktop Header */}
         <header className="hidden md:flex justify-between items-center p-8 bg-background/80 backdrop-blur sticky top-0 z-40 gap-4">
           <div className="relative w-96">
@@ -190,35 +195,39 @@ export default function RootLayout() {
           </AnimatePresence>
         </div>
 
-        {/* FAB - Mobile Only */}
-        <div className="md:hidden fixed bottom-24 right-4 z-50">
-          <Button 
-            size="icon" 
-            className="h-14 w-14 rounded-2xl bg-primary shadow-lg hover:scale-105 transition-transform"
-            onClick={() => navigate(`/${lng}/post`)}
-          >
-            <Plus className="h-8 w-8 text-white" />
-          </Button>
-        </div>
-
-        {/* Bottom Nav - Mobile Only */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-card border-t border-border flex items-center justify-around px-2 z-40">
-          {bottomNavItems.map((item, index) => {
-            const isActive = location.pathname === item.path || (item.path === `/${lng}/` && location.pathname === `/${lng}`);
-            return (
-              <button
-                key={`${item.path}-${index}`}
-                onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center justify-center space-y-1 w-full transition-colors ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`}
+        {!hideMobileNav && (
+          <>
+            {/* FAB - Mobile Only */}
+            <div className="md:hidden fixed bottom-24 right-4 z-50">
+              <Button 
+                size="icon" 
+                className="h-14 w-14 rounded-2xl bg-primary shadow-lg hover:scale-105 transition-transform"
+                onClick={() => navigate(`/${lng}/post`)}
               >
-                <item.icon className={`h-6 w-6 ${isActive ? 'fill-primary/10' : ''}`} />
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+                <Plus className="h-8 w-8 text-white" />
+              </Button>
+            </div>
+
+            {/* Bottom Nav - Mobile Only */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-card border-t border-border flex items-center justify-around px-2 z-40">
+              {bottomNavItems.map((item, index) => {
+                const isActive = location.pathname === item.path || (item.path === `/${lng}/` && location.pathname === `/${lng}`);
+                return (
+                  <button
+                    key={`${item.path}-${index}`}
+                    onClick={() => navigate(item.path)}
+                    className={`flex flex-col items-center justify-center space-y-1 w-full transition-colors ${
+                      isActive ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    <item.icon className={`h-6 w-6 ${isActive ? 'fill-primary/10' : ''}`} />
+                    <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </>
+        )}
       </main>
     </div>
   );

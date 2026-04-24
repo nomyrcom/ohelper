@@ -194,13 +194,16 @@ export default function HomePage() {
                 </p>
 
                 <div className="mt-auto pt-4 border-t border-border/50 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-black text-accent-foreground uppercase">
+                  <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-black text-accent-foreground uppercase shadow-inner">
                     {service.requesterName?.[0] || 'ي'}
                   </div>
-                  <span className="text-xs font-medium text-foreground truncate max-w-[100px]">{service.requesterName}</span>
-                  <span className="text-[10px] text-muted-foreground mr-auto">
-                    {getCityLabel(service.city)} • {service.createdAt?.toDate?.()?.toLocaleDateString() || t('common:now')}
-                  </span>
+                  <span className="text-xs font-bold text-foreground truncate max-w-[100px]">{service.requesterName}</span>
+                  <div className="mr-auto flex items-center gap-1 py-1 px-2 bg-muted/50 rounded-lg border border-border/50">
+                    <MapPin className="h-2.5 w-2.5 text-primary/70" />
+                    <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">
+                      {getCityLabel(service.city)}
+                    </span>
+                  </div>
                 </div>
               </Card>
             </motion.div>
