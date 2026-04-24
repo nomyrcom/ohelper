@@ -56,7 +56,7 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow get: if isSignedIn();
       allow list: if isAdmin();
 
       allow create: if isSignedIn() && request.auth.uid == userId && 

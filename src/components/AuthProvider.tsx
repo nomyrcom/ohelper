@@ -28,19 +28,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userRef = doc(db, 'users', firebaseUser.uid);
           const userSnap = await getDoc(userRef).catch(e => handleFirestoreError(e, 'get', `users/${firebaseUser.uid}`));
 
-          const adminEmails = ['dharycrypto@gmail.com', 'nomyrcom@gmail.com'];
-
           if (userSnap.exists()) {
             const userData = { _id: userSnap.id, ...userSnap.data() } as User;
-            // Force admin status for the specific emails if not already set
-            if (firebaseUser.email && adminEmails.includes(firebaseUser.email) && !userData.isAdmin) {
-              await updateDoc(userRef, { isAdmin: true }).catch(e => handleFirestoreError(e, 'update', `users/${firebaseUser.uid}`));
-              userData.isAdmin = true;
-            }
             setUser(userData);
           } else {
             // New user, create profile with defaults
-            const isAdmin = firebaseUser.email ? adminEmails.includes(firebaseUser.email) : false;
             const newUser: User = {
               _id: firebaseUser.uid,
               tokenIdentifier: firebaseUser.uid,
@@ -50,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ratingSum: 0,
               ratingCount: 0,
               city: 'sanaa',
-              isAdmin
+              isAdmin: false
             };
             
             if (firebaseUser.photoURL) {

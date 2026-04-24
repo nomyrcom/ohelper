@@ -48,6 +48,13 @@ export default function AdminPage() {
   const [serviceFilter, setServiceFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   
+  // Pagination State
+  const ITEMS_PER_PAGE = 10;
+  const [usersPage, setUsersPage] = useState(1);
+  const [servicesPage, setServicesPage] = useState(1);
+  const [categoriesPage, setCategoriesPage] = useState(1);
+  const [citiesPage, setCitiesPage] = useState(1);
+  
   // Point Dialog State
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pointAmount, setPointAmount] = useState('0');
@@ -288,6 +295,19 @@ export default function AdminPage() {
     serviceFilter === 'all' ? true : s.status === serviceFilter
   );
 
+  // Pagination Logic
+  const paginatedUsers = filteredUsers.slice((usersPage - 1) * ITEMS_PER_PAGE, usersPage * ITEMS_PER_PAGE);
+  const totalUsersPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+
+  const paginatedServices = filteredServices.slice((servicesPage - 1) * ITEMS_PER_PAGE, servicesPage * ITEMS_PER_PAGE);
+  const totalServicesPages = Math.ceil(filteredServices.length / ITEMS_PER_PAGE);
+
+  const paginatedCategories = categories.slice((categoriesPage - 1) * ITEMS_PER_PAGE, categoriesPage * ITEMS_PER_PAGE);
+  const totalCategoriesPages = Math.ceil(categories.length / ITEMS_PER_PAGE);
+
+  const paginatedCities = cities.slice((citiesPage - 1) * ITEMS_PER_PAGE, citiesPage * ITEMS_PER_PAGE);
+  const totalCitiesPages = Math.ceil(cities.length / ITEMS_PER_PAGE);
+
   const stats = [
     { label: 'المستخدمين', value: totalUsers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'إجمالي الطلبات', value: totalServices, icon: ClipboardList, color: 'text-purple-600', bg: 'bg-purple-50' },
@@ -332,11 +352,31 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1.5 rounded-2xl grid grid-cols-2 h-auto md:flex md:h-11 w-full max-w-md mx-auto mb-8 shadow-sm">
-          <TabsTrigger value="users" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">المستخدمين</TabsTrigger>
-          <TabsTrigger value="services" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">الخدمات</TabsTrigger>
-          <TabsTrigger value="categories" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">{t('categories')}</TabsTrigger>
-          <TabsTrigger value="cities" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all">{t('governorates')}</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1.5 rounded-2xl grid grid-cols-2 h-auto md:flex md:h-11 w-full max-w-2xl mx-auto mb-8 shadow-sm">
+          <TabsTrigger value="users" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all flex items-center gap-2 text-xs md:text-sm">
+            المستخدمين
+            <Badge variant="secondary" className="h-5 min-w-[20px] px-1 pointer-events-none bg-primary/10 text-primary border-0 text-[10px] flex items-center justify-center">
+              {users.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="services" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all flex items-center gap-2 text-xs md:text-sm">
+            الخدمات
+            <Badge variant="secondary" className="h-5 min-w-[20px] px-1 pointer-events-none bg-primary/10 text-primary border-0 text-[10px] flex items-center justify-center">
+              {services.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all flex items-center gap-2 text-xs md:text-sm">
+            {t('categories')}
+            <Badge variant="secondary" className="h-5 min-w-[20px] px-1 pointer-events-none bg-primary/10 text-primary border-0 text-[10px] flex items-center justify-center">
+              {categories.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="cities" className="rounded-xl font-bold px-4 py-2.5 md:px-8 transition-all flex items-center gap-2 text-xs md:text-sm">
+            {t('governorates')}
+            <Badge variant="secondary" className="h-5 min-w-[20px] px-1 pointer-events-none bg-primary/10 text-primary border-0 text-[10px] flex items-center justify-center">
+              {cities.length}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-4 mt-4">
@@ -346,12 +386,15 @@ export default function AdminPage() {
               placeholder="البحث بالاسم أو البريد..." 
               className="pr-10 rounded-xl"
               value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
+              onChange={(e) => {
+                setUserSearch(e.target.value);
+                setUsersPage(1);
+              }}
             />
           </div>
 
           <div className="grid gap-4">
-            {filteredUsers.map(u => {
+            {paginatedUsers.map(u => {
               const uPublished = services.filter(s => s.requesterId === u._id).length;
               const uExecuted = services.filter(s => s.providerId === u._id && s.status === 'completed').length;
               
@@ -415,6 +458,28 @@ export default function AdminPage() {
               );
             })}
           </div>
+
+          {totalUsersPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={usersPage === 1}
+                onClick={() => setUsersPage(prev => prev - 1)}
+              >
+                السابق
+              </Button>
+              <span className="text-sm font-bold text-muted-foreground">
+                صفحة {usersPage} من {totalUsersPages}
+              </span>
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={usersPage === totalUsersPages}
+                onClick={() => setUsersPage(prev => prev + 1)}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="services" className="space-y-4 mt-4">
@@ -424,7 +489,10 @@ export default function AdminPage() {
                 key={status}
                 variant={serviceFilter === status ? 'default' : 'outline'}
                 className="cursor-pointer px-4 py-1.5 rounded-lg font-bold"
-                onClick={() => setServiceFilter(status)}
+                onClick={() => {
+                  setServiceFilter(status);
+                  setServicesPage(1);
+                }}
               >
                 {status === 'all' ? 'الكل' : 
                  status === 'open' ? 'مفتوح' : 
@@ -436,7 +504,7 @@ export default function AdminPage() {
           </div>
 
           <div className="grid gap-4">
-            {filteredServices.map(s => (
+            {paginatedServices.map(s => (
               <Card key={s.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-border shadow-sm">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -470,6 +538,28 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+
+          {totalServicesPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={servicesPage === 1}
+                onClick={() => setServicesPage(prev => prev - 1)}
+              >
+                السابق
+              </Button>
+              <span className="text-sm font-bold text-muted-foreground">
+                صفحة {servicesPage} من {totalServicesPages}
+              </span>
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={servicesPage === totalServicesPages}
+                onClick={() => setServicesPage(prev => prev + 1)}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-4 mt-4">
@@ -490,7 +580,7 @@ export default function AdminPage() {
             </Button>
           </div>
           <div className="grid gap-3">
-            {categories.map(cat => (
+            {paginatedCategories.map(cat => (
               <Card key={cat.id} className="p-4 flex items-center justify-between border-border shadow-sm">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -524,6 +614,28 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+
+          {totalCategoriesPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={categoriesPage === 1}
+                onClick={() => setCategoriesPage(prev => prev - 1)}
+              >
+                السابق
+              </Button>
+              <span className="text-sm font-bold text-muted-foreground">
+                صفحة {categoriesPage} من {totalCategoriesPages}
+              </span>
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={categoriesPage === totalCategoriesPages}
+                onClick={() => setCategoriesPage(prev => prev + 1)}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="cities" className="space-y-4 mt-4">
@@ -544,7 +656,7 @@ export default function AdminPage() {
             </Button>
           </div>
           <div className="grid gap-3">
-            {cities.map(city => (
+            {paginatedCities.map(city => (
               <Card key={city.id} className="p-4 flex items-center justify-between border-border shadow-sm">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -578,6 +690,28 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+
+          {totalCitiesPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={citiesPage === 1}
+                onClick={() => setCitiesPage(prev => prev - 1)}
+              >
+                السابق
+              </Button>
+              <span className="text-sm font-bold text-muted-foreground">
+                صفحة {citiesPage} من {totalCitiesPages}
+              </span>
+              <Button 
+                variant="outline" size="sm" className="rounded-xl font-bold"
+                disabled={citiesPage === totalCitiesPages}
+                onClick={() => setCitiesPage(prev => prev + 1)}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
